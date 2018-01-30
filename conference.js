@@ -1330,6 +1330,7 @@ export default {
      * @returns {Promise}
      */
     useVideoStream(newStream) {
+        const oldStream = this.localVideo;
         return APP.store.dispatch(
             replaceLocalTrack(this.localVideo, newStream, room))
             .then(() => {
@@ -1343,7 +1344,10 @@ export default {
                     this.isSharingScreen = false;
                 }
                 this.setVideoMuteStatus(this.isLocalVideoMuted());
-                APP.UI.updateDesktopSharingButtons();
+                if (oldStream.videoType != newStream.videoType) {
+                    APP.UI.updateDesktopSharingButtons();
+                    APP.API.notifyScreenSharingStatusChanged(this.isSharingScreen);
+                }
             });
     },
 
