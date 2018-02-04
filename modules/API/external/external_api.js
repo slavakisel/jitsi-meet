@@ -27,8 +27,9 @@ const commands = {
     toggleContactList: 'toggle-contact-list',
     toggleFilmStrip: 'toggle-film-strip',
     toggleShareScreen: 'toggle-share-screen',
-    toggleVideo: 'toggle-video'
-};
+    toggleVideo: 'toggle-video',
+    toggleRaiseHand: 'toggle-raise-hand'
+}
 
 /**
  * Maps the names of the events expected by the API with the name of the
@@ -49,7 +50,8 @@ const events = {
     'video-conference-left': 'videoConferenceLeft',
     'video-availability-changed': 'videoAvailabilityChanged',
     'video-mute-status-changed': 'videoMuteStatusChanged',
-    'screen-sharing-status-changed': 'screenSharingStatusChanged'
+    'screen-sharing-status-changed': 'screenSharingStatusChanged',
+    'local-raised-hand-status-changed': 'localRaisedHandStatusChanged'
 };
 
 /**
@@ -525,6 +527,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * toggleAudio - mutes / unmutes audio with no arguments.
      * toggleVideo - mutes / unmutes video with no arguments.
      * toggleFilmStrip - hides / shows the filmstrip with no arguments.
+     * toggleRaiseHand - raises / puts down the local user hand.
      * If the command doesn't require any arguments the parameter should be set
      * to empty array or it may be omitted.
      *
