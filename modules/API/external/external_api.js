@@ -28,7 +28,8 @@ const commands = {
     toggleFilmStrip: 'toggle-film-strip',
     toggleShareScreen: 'toggle-share-screen',
     toggleVideo: 'toggle-video',
-    toggleRaiseHand: 'toggle-raise-hand'
+    toggleRaiseHand: 'toggle-raise-hand',
+    openDeviceSelectionDialog: 'open-device-selection-dialog'
 };
 
 /**
@@ -528,6 +529,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * toggleVideo - mutes / unmutes video with no arguments.
      * toggleFilmStrip - hides / shows the filmstrip with no arguments.
      * toggleRaiseHand - raises / puts down the local user hand.
+     * openDeviceSelectionDialog - opens device selection dialog.
      * If the command doesn't require any arguments the parameter should be set
      * to empty array or it may be omitted.
      *

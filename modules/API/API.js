@@ -7,6 +7,9 @@ import {
     sendAnalytics
 } from '../../react/features/analytics';
 import { getJitsiMeetTransport } from '../transport';
+import {
+    openDeviceSelectionDialog
+} from '../../react/features/device-selection';
 
 import { API_ID } from './constants';
 
@@ -104,6 +107,9 @@ function initCommands() {
         'avatar-url': avatarUrl => {
             sendAnalytics(createApiEvent('avatar.url.changed'));
             APP.conference.changeLocalAvatarUrl(avatarUrl);
+        },
+        'open-device-selection-dialog': () => {
+            APP.store.dispatch(openDeviceSelectionDialog());
         }
     };
     transport.on('event', ({ data, name }) => {
