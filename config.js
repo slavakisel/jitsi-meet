@@ -16,10 +16,10 @@ var config = {
 
     hosts: {
         // XMPP domain.
-        domain: 'jitsi-meet.example.com',
+        domain: 'jitsi.mastermindbetter.com',
 
         // XMPP MUC domain. FIXME: use XEP-0030 to discover it.
-        muc: 'conference.jitsi-meet.example.com'
+        muc: 'conference.jitsi.mastermindbetter.com'
 
         // When using authentication, domain for guest users.
         // anonymousdomain: 'guest.example.com',
@@ -138,17 +138,17 @@ var config = {
     // disableDesktopSharing: false,
 
     // The ID of the jidesha extension for Chrome.
-    desktopSharingChromeExtId: null,
+    desktopSharingChromeExtId: 'dfjmpabgigadkgkdmjijoeblolbecdhd',
 
     // Whether desktop sharing should be disabled on Chrome.
-    desktopSharingChromeDisabled: true,
+    desktopSharingChromeDisabled: false,
 
     // The media sources to use when using screen sharing with the Chrome
     // extension.
     desktopSharingChromeSources: [ 'screen', 'window', 'tab' ],
 
     // Required version of Chrome extension
-    desktopSharingChromeMinExtVersion: '0.1',
+    desktopSharingChromeMinExtVersion: '1.0',
 
     // The ID of the jidesha extension for Firefox. If null, we assume that no
     // extension is required.
