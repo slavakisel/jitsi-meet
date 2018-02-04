@@ -107,6 +107,11 @@ api.executeCommand('toggleContactList')
 api.executeCommand('toggleShareScreen')
 ```
 
+* **toggleRaiseHand** - Raises / puts down local user hand. No arguments are required.
+```javascript
+api.executeCommand('toggleRaiseHand')
+```
+
 * **hangup** - Hangups the call. No arguments are required.
 ```javascript
 api.executeCommand('hangup')
@@ -168,6 +173,14 @@ changes. The listener will receive an object with the following structure:
 ```javascript
 {
 "on": on //whether screen sharing is on
+}
+```
+
+* **localRaisedHandStatusChanged** - receives event notifications about local user raised hand status.
+The listener will receive object with the following structure:
+```javascript
+{
+"raised": raised //whether hand is raised
 }
 ```
 

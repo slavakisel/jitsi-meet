@@ -2621,6 +2621,7 @@ export default {
 
             // Update the view
             APP.UI.setLocalRaisedHandStatus(raisedHand);
+            APP.API.notifyLocalRaisedHandStatusChanged(raisedHand);
         }
     },
 
