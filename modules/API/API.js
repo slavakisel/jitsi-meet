@@ -77,6 +77,10 @@ function initCommands() {
             sendAnalytics(createApiEvent('film.strip.toggled'));
             APP.UI.toggleFilmstrip();
         },
+        'toggle-raise-hand': () => {
+            logger.log('RaisedHand toggle: API command received');
+            APP.conference.maybeToggleRaisedHand();
+        },
         'toggle-chat': () => {
             sendAnalytics(createApiEvent('chat.toggled'));
             APP.UI.toggleChat();
@@ -482,6 +486,20 @@ class API {
         this._sendEvent({
             name: 'screen-sharing-status-changed',
             on
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that the local user
+     * hand has been raised.
+     *
+     * @param {boolean} raised - True if hand is raised.
+     * @returns {void}
+     */
+    notifyLocalRaisedHandStatusChanged(raised: boolean) {
+        this._sendEvent({
+            name: 'local-raised-hand-status-changed',
+            raised
         });
     }
 
