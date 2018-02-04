@@ -27,7 +27,8 @@ const commands = {
     toggleFilmStrip: 'toggle-film-strip',
     toggleShareScreen: 'toggle-share-screen',
     toggleVideo: 'toggle-video',
-    loadDialIn: 'load-dial-in'
+    loadDialIn: 'load-dial-in',
+    openDeviceSelectionDialog: 'open-device-selection-dialog'
 };
 
 /**
@@ -534,6 +535,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * toggleVideo - mutes / unmutes video with no arguments.
      * toggleFilmStrip - hides / shows the filmstrip with no arguments.
      * loadDialIn - requests conference ID from conference mapper and dialin info.
+     * openDeviceSelectionDialog - opens device selection dialog.
      * If the command doesn't require any arguments the parameter should be set
      * to empty array or it may be omitted.
      *

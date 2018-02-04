@@ -8,7 +8,11 @@ import {
 import { parseJWTFromURLParams } from '../../react/features/base/jwt';
 import { invite } from '../../react/features/invite';
 import { getJitsiMeetTransport } from '../transport';
+
 import { loadDialIn } from '../../react/features/invite/loadDialIn';
+import {
+    openDeviceSelectionDialog
+} from '../../react/features/device-selection';
 
 import { API_ID } from './constants';
 
@@ -108,6 +112,9 @@ function initCommands() {
                 },
                 (error) => { console.log(error) }
             );
+        },
+        'open-device-selection-dialog': () => {
+            APP.store.dispatch(openDeviceSelectionDialog());
         }
     };
     transport.on('event', ({ data, name }) => {
@@ -413,7 +420,7 @@ class API {
      * @param {number} pin - conference id.
      * @returns {void}
      */
-    notifyDialInReady(pin) {
+    notifyDialInReady(pin: number) {
         this._sendEvent({
             name: 'dialin-ready',
             pin
