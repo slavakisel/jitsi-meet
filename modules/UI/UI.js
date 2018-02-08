@@ -1109,7 +1109,8 @@ UI.showExtensionExternalInstallationDialog = function(url) {
         leftButtonKey: 'dialog.goToStore',
         submitFunction,
         loadedFunction: $.noop,
-        closeFunction
+        closeFunction,
+        wrapperClass: 'external-installation-dialog'
     });
 };
 
