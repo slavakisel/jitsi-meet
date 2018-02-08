@@ -246,43 +246,6 @@ class API {
     }
 
     /**
-     * Notify external application (if API is enabled) that message was sent.
-     *
-     * @param {string} message - Message body.
-     * @returns {void}
-     */
-    notifySendingChatMessage(message: string) {
-        this._sendEvent({
-            name: 'outgoing-message',
-            message
-        });
-    }
-
-    /**
-     * Notify external application (if API is enabled) that message was
-     * received.
-     *
-     * @param {Object} options - Object with the message properties.
-     * @returns {void}
-     */
-    notifyReceivedChatMessage(
-            { body, id, nick, ts }: {
-                body: *, id: string, nick: string, ts: *
-            } = {}) {
-        if (APP.conference.isLocalId(id)) {
-            return;
-        }
-
-        this._sendEvent({
-            name: 'incoming-message',
-            from: id,
-            message: body,
-            nick,
-            stamp: ts
-        });
-    }
-
-    /**
      * Notify external application (if API is enabled) that user joined the
      * conference.
      *

@@ -217,17 +217,6 @@ UI.notifyConferenceDestroyed = function(reason) {
 };
 
 /**
- * Show chat error.
- * @param err the Error
- * @param msg
- */
-UI.showChatError = function(err, msg) {
-    if (!interfaceConfig.filmStripOnly) {
-        Chat.chatAddError(err, msg);
-    }
-};
-
-/**
  * Change nickname for the user.
  * @param {string} id user id
  * @param {string} displayName new nickname
@@ -948,18 +937,6 @@ UI.markVideoInterrupted = function(interrupted) {
     } else {
         VideoLayout.onVideoRestored();
     }
-};
-
-/**
- * Add chat message.
- * @param {string} from user id
- * @param {string} displayName user nickname
- * @param {string} message message text
- * @param {number} stamp timestamp when message was created
- */
-// eslint-disable-next-line max-params
-UI.addMessage = function(from, displayName, message, stamp) {
-    Chat.updateChatConversation(from, displayName, message, stamp);
 };
 
 UI.updateDTMFSupport

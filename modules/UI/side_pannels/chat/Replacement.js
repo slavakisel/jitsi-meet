@@ -1,13 +1,3 @@
-import { regexes } from './smileys';
-
-/**
- * Processes links and smileys in "body"
- */
-export function processReplacements(body) {
-    // make links clickable + add smileys
-    return smilify(linkify(body));
-}
-
 /**
  * Finds and replaces all links in the links in "body"
  * with their <a href=""></a>
@@ -35,24 +25,4 @@ export function linkify(inputText) {
     /* eslint-enable no-useless-escape */
 
     return replacedText;
-}
-
-/**
- * Replaces common smiley strings with images
- */
-function smilify(body) {
-    if (!body) {
-        return body;
-    }
-
-    let formattedBody = body;
-
-    for (const smiley in regexes) {
-        if (regexes.hasOwnProperty(smiley)) {
-            formattedBody = formattedBody.replace(regexes[smiley],
-                `<img class="smiley" src="images/smileys/${smiley}.svg">`);
-        }
-    }
-
-    return body;
 }

@@ -14,7 +14,6 @@ import { Container, LoadingIndicator, TintedView } from '../../base/react';
 import { createDesiredLocalTracks } from '../../base/tracks';
 import { Filmstrip } from '../../filmstrip';
 import { LargeVideo } from '../../large-video';
-import { setToolboxVisible, Toolbox } from '../../toolbox';
 
 import styles from './styles';
 
@@ -65,14 +64,6 @@ type Props = {
      * undesired, {@code true} is always returned.
      */
     _onHardwareBackPress: Function,
-
-    /**
-     * The handler which dispatches the (redux) action setToolboxVisible to
-     * show/hide the Toolbox.
-     *
-     * @private
-     */
-    _setToolboxVisible: Function,
 
     /**
      * The indicator which determines whether the Toolbox is visible.
@@ -207,10 +198,6 @@ class Conference extends Component<Props> {
 
                 <View style = { styles.toolboxAndFilmstripContainer } >
                     {/*
-                      * The Toolbox is in a stacking layer bellow the Filmstrip.
-                      */}
-                    <Toolbox />
-                    {/*
                       * The Filmstrip is in a stacking layer above the
                       * LargeVideo. The LargeVideo and the Filmstrip form what
                       * the Web/React app calls "videospace". Presumably, the
@@ -243,23 +230,6 @@ class Conference extends Component<Props> {
     }
 
     _onClick: () => void;
-
-    /**
-     * Changes the value of the toolboxVisible state, thus allowing us to switch
-     * between Toolbox and Filmstrip and change their visibility.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onClick() {
-        const toolboxVisible = !this.props._toolboxVisible;
-
-        this.props._setToolboxVisible(toolboxVisible);
-
-        // XXX If the user taps to toggle the visibility of the Toolbox, then no
-        // automatic toggling of the visibility should happen.
-        this._clearToolboxTimeout();
-    }
 
     _onHardwareBackPress: () => boolean;
 
@@ -298,8 +268,7 @@ class Conference extends Component<Props> {
  * @private
  * @returns {{
  *     _onConnect: Function,
- *     _onDisconnect: Function,
- *     _setToolboxVisible: Function
+ *     _onDisconnect: Function
  * }}
  */
 function _mapDispatchToProps(dispatch) {
@@ -338,18 +307,6 @@ function _mapDispatchToProps(dispatch) {
             dispatch(appNavigate(undefined));
 
             return true;
-        },
-
-        /**
-         * Dispatches an action changing the visibility of the Toolbox.
-         *
-         * @param {boolean} visible - True to show the Toolbox or false to hide
-         * it.
-         * @returns {void}
-         * @private
-         */
-        _setToolboxVisible(visible) {
-            dispatch(setToolboxVisible(visible));
         }
     };
 }

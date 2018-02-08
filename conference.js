@@ -99,10 +99,6 @@ import {
     mediaPermissionPromptVisibilityChanged,
     suspendDetected
 } from './react/features/overlay';
-import {
-    isButtonEnabled,
-    showDesktopSharingButton
-} from './react/features/toolbox';
 
 const logger = require('jitsi-meet-logger').getLogger(__filename);
 
@@ -389,18 +385,8 @@ class ConferenceConnector {
      */
     _onConferenceError(err, ...params) {
         logger.error('CONFERENCE Error:', err, params);
-        switch (err) {
-        case JitsiConferenceErrors.CHAT_ERROR:
-            logger.error('Chat error.', err);
-            if (isButtonEnabled('chat')) {
-                const [ code, msg ] = params;
 
-                APP.UI.showChatError(code, msg);
-            }
-            break;
-        default:
-            logger.error('Unknown error.', err);
-        }
+        logger.error('Unknown error.', err);
     }
 
     /**
@@ -766,8 +752,6 @@ export default {
                 eventEmitter.emit(
                     JitsiMeetConferenceEvents.DESKTOP_SHARING_ENABLED_CHANGED,
                     this.isDesktopSharingEnabled);
-
-                APP.store.dispatch(showDesktopSharingButton());
 
                 this._createRoom(tracks);
                 APP.remoteControl.init();
@@ -1895,33 +1879,6 @@ export default {
             room.on(JitsiConferenceEvents.CONNECTION_RESTORED, () => {
                 APP.UI.markVideoInterrupted(false);
             });
-
-            if (isButtonEnabled('chat')) {
-                room.on(
-                    JitsiConferenceEvents.MESSAGE_RECEIVED,
-                    (id, body, ts) => {
-                        let nick = getDisplayName(id);
-
-                        if (!nick) {
-                            nick = `${
-                                interfaceConfig.DEFAULT_REMOTE_DISPLAY_NAME} (${
-                                id})`;
-                        }
-
-                        APP.API.notifyReceivedChatMessage({
-                            id,
-                            nick,
-                            body,
-                            ts
-                        });
-                        APP.UI.addMessage(id, nick, body, ts);
-                    }
-                );
-                APP.UI.addListener(UIEvents.MESSAGE_CREATED, message => {
-                    APP.API.notifySendingChatMessage(message);
-                    room.sendTextMessage(message);
-                });
-            }
 
             APP.UI.addListener(UIEvents.SELECTED_ENDPOINT, id => {
                 APP.API.notifyOnStageParticipantChanged(id);
