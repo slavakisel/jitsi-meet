@@ -5,9 +5,6 @@ import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
-import { InviteButton } from '../../invite';
-import { Toolbox } from '../../toolbox';
-
 import { setFilmstripHovered } from '../actions';
 import { shouldRemoteVideosBeVisible } from '../functions';
 
@@ -52,12 +49,7 @@ class Filmstrip extends Component<*> {
         /**
          * Updates the redux store with filmstrip hover changes.
          */
-        dispatch: PropTypes.func,
-
-        /**
-         * Whether or not the conference is in filmstripOnly mode.
-         */
-        filmstripOnly: PropTypes.bool
+        dispatch: PropTypes.func
     };
 
     /**
@@ -107,7 +99,6 @@ class Filmstrip extends Component<*> {
 
         return (
             <div className = { filmstripClassNames }>
-                { this.props.filmstripOnly ? <Toolbox /> : null }
                 <div
                     className = 'filmstrip__videos'
                     id = 'remoteVideos'>
@@ -116,9 +107,6 @@ class Filmstrip extends Component<*> {
                         id = 'filmstripLocalVideo'
                         onMouseOut = { this._onMouseOut }
                         onMouseOver = { this._onMouseOver }>
-                        { this.props.filmstripOnly
-                            || this.props._hideInviteButton
-                            ? null : <InviteButton /> }
                         <div id = 'filmstripLocalVideoThumbnail' />
                     </div>
                     <div
