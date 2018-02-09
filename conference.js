@@ -1334,7 +1334,6 @@ export default {
                     && oldStream.videoType !== newStream.videoType;
 
                 if (screenSharingStatusChanged) {
-                    APP.UI.updateDesktopSharingButtons();
                     APP.API.notifyScreenSharingStatusChanged(
                         this.isSharingScreen
                     );
@@ -1358,37 +1357,6 @@ export default {
                 }
                 this.setAudioMuteStatus(this.isLocalAudioMuted());
             });
-    },
-
-    /**
-     * Triggers a tooltip to display when a feature was attempted to be used
-     * while in audio only mode.
-     *
-     * @param {string} featureName - The name of the feature that attempted to
-     * toggle.
-     * @private
-     * @returns {void}
-     */
-    _displayAudioOnlyTooltip(featureName) {
-        let buttonName = null;
-        let tooltipElementId = null;
-
-        switch (featureName) {
-        case 'screenShare':
-            buttonName = 'desktop';
-            tooltipElementId = 'screenshareWhileAudioOnly';
-            break;
-        case 'videoMute':
-            buttonName = 'camera';
-            tooltipElementId = 'unmuteWhileAudioOnly';
-            break;
-        }
-
-        if (tooltipElementId) {
-            APP.UI.showToolbar(6000);
-            APP.UI.showCustomToolbarPopup(
-                buttonName, tooltipElementId, true, 5000);
-        }
     },
 
     /**
@@ -1501,8 +1469,6 @@ export default {
         }
 
         if (this.isAudioOnly()) {
-            this._displayAudioOnlyTooltip('screenShare');
-
             return Promise.reject('No screensharing in audio only mode');
         }
 
@@ -1830,13 +1796,6 @@ export default {
             APP.UI.setAudioLevel(id, newLvl);
         });
 
-        room.on(JitsiConferenceEvents.TALK_WHILE_MUTED, () => {
-            APP.UI.showToolbar(6000);
-
-            APP.UI.showCustomToolbarPopup(
-                'microphone', 'talkWhileMutedPopup', true, 5000);
-        });
-
         room.on(
             JitsiConferenceEvents.LAST_N_ENDPOINTS_CHANGED,
             (leavingIds, enteringIds) =>
@@ -1897,10 +1856,6 @@ export default {
                     reportError(e);
                 }
             });
-
-            APP.UI.addListener(
-                UIEvents.VIDEO_UNMUTING_WHILE_AUDIO_ONLY,
-                () => this._displayAudioOnlyTooltip('videoMute'));
         }
 
         room.on(JitsiConferenceEvents.CONNECTION_INTERRUPTED, () => {
@@ -2015,20 +1970,11 @@ export default {
             }
         });
 
-        room.on(
-            JitsiConferenceEvents.DTMF_SUPPORT_CHANGED,
-            isDTMFSupported => {
-                APP.UI.updateDTMFSupport(isDTMFSupported);
-            }
-        );
-
         APP.UI.addListener(UIEvents.AUDIO_MUTED, muted => {
             this.muteAudio(muted);
         });
         APP.UI.addListener(UIEvents.VIDEO_MUTED, muted => {
-            if (this.isAudioOnly() && !muted) {
-                this._displayAudioOnlyTooltip('videoMute');
-            } else {
+            if (!(this.isAudioOnly() && !muted)) {
                 this.muteVideo(muted);
             }
         });
@@ -2134,9 +2080,6 @@ export default {
 
         APP.UI.addListener(UIEvents.SUBJECT_CHANGED, topic => {
             room.setSubject(topic);
-        });
-        room.on(JitsiConferenceEvents.SUBJECT_CHANGED, subject => {
-            APP.UI.setSubject(subject);
         });
 
         APP.UI.addListener(UIEvents.AUTH_CLICKED, () => {

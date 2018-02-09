@@ -1,15 +1,11 @@
 /* global APP, $ */
 
-import { linkify } from './Replacement';
 import CommandsProcessor from './Commands';
-import VideoLayout from '../../videolayout/VideoLayout';
 
 import UIUtil from '../../util/UIUtil';
 import UIEvents from '../../../../service/UI/UIEvents';
 
 import { smileys } from './smileys';
-
-import { dockToolbox, setSubject } from '../../../../react/features/toolbox';
 
 let unreadMessages = 0;
 const sidePanelsContainerId = 'sideToolbarContainer';
@@ -62,8 +58,6 @@ function updateVisualNotification() {
 
     if (unreadMessages && unreadMsgElement) {
         unreadMsgElement.innerHTML = unreadMessages.toString();
-
-        APP.store.dispatch(dockToolbox(true));
 
         const chatButtonElement
             = document.getElementById('toolbar_button_chat');
@@ -229,12 +223,6 @@ const Chat = {
                 unreadMessages = 0;
                 updateVisualNotification();
 
-                // Undock the toolbar when the chat is shown and if we're in a
-                // video mode.
-                if (VideoLayout.isLargeVideoVisible()) {
-                    APP.store.dispatch(dockToolbox(false));
-                }
-
                 // if we are in conversation mode focus on the text input
                 // if we are not, focus on the display name input
                 deferredFocus(
@@ -245,21 +233,6 @@ const Chat = {
 
         addSmileys();
         updateVisualNotification();
-    },
-
-    /**
-     * Sets the subject to the UI
-     * @param subject the subject
-     */
-    setSubject(subject) {
-        if (subject) {
-            // eslint-disable-next-line no-param-reassign
-            subject = subject.trim();
-        }
-
-        const html = linkify(UIUtil.escapeHtml(subject));
-
-        APP.store.dispatch(setSubject(html));
     },
 
     /**
