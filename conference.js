@@ -1329,16 +1329,31 @@ export default {
                     this.isSharingScreen = false;
                 }
                 this.setVideoMuteStatus(this.isLocalVideoMuted());
-                const screenSharingStatusChanged = oldStream
-                    && newStream
-                    && oldStream.videoType !== newStream.videoType;
-
-                if (screenSharingStatusChanged) {
-                    APP.API.notifyScreenSharingStatusChanged(
-                        this.isSharingScreen
-                    );
-                }
+                this._maybeUpdateScreenSharingStatus(oldStream, newStream);
             });
+    },
+
+    /**
+     * Compares previous and provided video stream types.
+     * If desktop sharing was stopped/started it notifies external application.
+     *
+     * @param {JitsiLocalTrack} [oldStream] previously used stream or null
+     * @param {JitsiLocalTrack} [newStream] new stream to use or null
+     * @private
+     * @returns {void}
+     */
+    _maybeUpdateScreenSharingStatus(oldStream, newStream) {
+        const oldVideoType = oldStream && oldStream.videoType;
+        const newVideoType = newStream && newStream.videoType;
+
+        const sharingStatusChanged = oldVideoType !== newVideoType
+            && (oldVideoType === 'desktop' || newVideoType === 'desktop');
+
+        if (sharingStatusChanged) {
+            APP.API.notifyScreenSharingStatusChanged(
+                this.isSharingScreen
+            );
+        }
     },
 
     /**
