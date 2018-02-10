@@ -1,6 +1,5 @@
 // @flow
 
-import _ from 'lodash';
 import React, { Component } from 'react';
 import { connect as reactReduxConnect } from 'react-redux';
 
@@ -11,7 +10,6 @@ import { CalleeInfoContainer } from '../../base/jwt';
 import { Filmstrip } from '../../filmstrip';
 import { LargeVideo } from '../../large-video';
 import { NotificationsContainer } from '../../notifications';
-import { showToolbox, Toolbox } from '../../toolbox';
 import { HideNotificationBarStyle } from '../../unsupported-browser';
 
 import { maybeShowSuboptimalExperienceNotification } from '../functions';
@@ -37,30 +35,6 @@ type Props = {
  * The conference page of the Web application.
  */
 class Conference extends Component<Props> {
-    _onShowToolbar: Function;
-    _originalOnShowToolbar: Function;
-
-    /**
-     * Initializes a new Conference instance.
-     *
-     * @param {Object} props - The read-only properties with which the new
-     * instance is to be initialized.
-     */
-    constructor(props) {
-        super(props);
-
-        // Throttle and bind this component's mousemove handler to prevent it
-        // from firing too often.
-        this._originalOnShowToolbar = this._onShowToolbar;
-        this._onShowToolbar = _.throttle(
-            () => this._originalOnShowToolbar(),
-            100,
-            {
-                leading: true,
-                trailing: false
-            });
-    }
-
     /**
      * Until we don't rewrite UI using react components
      * we use UI.start from old app. Also method translates
@@ -108,15 +82,12 @@ class Conference extends Component<Props> {
 
         return (
             <div
-                id = 'videoconference_page'
-                onMouseMove = { this._onShowToolbar }>
+                id = 'videoconference_page'>
                 <div id = 'videospace'>
                     <LargeVideo
                         hideVideoQualityLabel = { hideVideoQualityLabel } />
-                    <Filmstrip filmstripOnly = { filmStripOnly } />
+                    <Filmstrip />
                 </div>
-
-                { filmStripOnly ? null : <Toolbox /> }
 
                 <DialogContainer />
                 <NotificationsContainer />
@@ -133,16 +104,6 @@ class Conference extends Component<Props> {
                 <HideNotificationBarStyle />
             </div>
         );
-    }
-
-    /**
-     * Displays the toolbar.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onShowToolbar() {
-        this.props.dispatch(showToolbox());
     }
 }
 

@@ -28,7 +28,6 @@ import {
     createRecordingDialogEvent,
     sendAnalytics
 } from '../../../react/features/analytics';
-import { setToolboxEnabled } from '../../../react/features/toolbox';
 import { setNotificationsEnabled } from '../../../react/features/notifications';
 import {
     hideRecordingLabel,
@@ -312,7 +311,6 @@ const Recording = {
                 VideoLayout.setLocalVideoVisible(false);
             }
 
-            APP.store.dispatch(setToolboxEnabled(false));
             APP.store.dispatch(setNotificationsEnabled(false));
             APP.UI.messageHandler.enablePopups(false);
         }

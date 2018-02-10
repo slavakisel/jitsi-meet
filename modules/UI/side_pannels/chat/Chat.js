@@ -1,15 +1,11 @@
 /* global APP, $ */
 
-import { processReplacements, linkify } from './Replacement';
 import CommandsProcessor from './Commands';
-import VideoLayout from '../../videolayout/VideoLayout';
 
 import UIUtil from '../../util/UIUtil';
 import UIEvents from '../../../../service/UI/UIEvents';
 
 import { smileys } from './smileys';
-
-import { dockToolbox, setSubject } from '../../../../react/features/toolbox';
 
 let unreadMessages = 0;
 const sidePanelsContainerId = 'sideToolbarContainer';
@@ -63,8 +59,6 @@ function updateVisualNotification() {
     if (unreadMessages && unreadMsgElement) {
         unreadMsgElement.innerHTML = unreadMessages.toString();
 
-        APP.store.dispatch(dockToolbox(true));
-
         const chatButtonElement
             = document.getElementById('toolbar_button_chat');
         const leftIndent
@@ -84,30 +78,6 @@ function updateVisualNotification() {
     if (unreadMsgElement) {
         unreadMsgSelector.parent()[unreadMessages > 0 ? 'show' : 'hide']();
     }
-}
-
-
-/**
- * Returns the current time in the format it is shown to the user
- * @returns {string}
- */
-function getCurrentTime(stamp) {
-    const now = stamp ? new Date(stamp) : new Date();
-    let hour = now.getHours();
-    let minute = now.getMinutes();
-    let second = now.getSeconds();
-
-    if (hour.toString().length === 1) {
-        hour = `0${hour}`;
-    }
-    if (minute.toString().length === 1) {
-        minute = `0${minute}`;
-    }
-    if (second.toString().length === 1) {
-        second = `0${second}`;
-    }
-
-    return `${hour}:${minute}:${second}`;
 }
 
 /**
@@ -253,12 +223,6 @@ const Chat = {
                 unreadMessages = 0;
                 updateVisualNotification();
 
-                // Undock the toolbar when the chat is shown and if we're in a
-                // video mode.
-                if (VideoLayout.isLargeVideoVisible()) {
-                    APP.store.dispatch(dockToolbox(false));
-                }
-
                 // if we are in conversation mode focus on the text input
                 // if we are not, focus on the display name input
                 deferredFocus(
@@ -269,84 +233,6 @@ const Chat = {
 
         addSmileys();
         updateVisualNotification();
-    },
-
-    /**
-     * Appends the given message to the chat conversation.
-     */
-    // eslint-disable-next-line max-params
-    updateChatConversation(id, displayName, message, stamp) {
-        let divClassName = '';
-
-        if (APP.conference.isLocalId(id)) {
-            divClassName = 'localuser';
-        } else {
-            divClassName = 'remoteuser';
-
-            if (!Chat.isVisible()) {
-                unreadMessages++;
-                UIUtil.playSoundNotification('chatNotification');
-                updateVisualNotification();
-            }
-        }
-
-        // replace links and smileys
-        // Strophe already escapes special symbols on sending,
-        // so we escape here only tags to avoid double &amp;
-        const escMessage = message.replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-.replace(/\n/g, '<br/>');
-        const escDisplayName = UIUtil.escapeHtml(displayName);
-
-        // eslint-disable-next-line no-param-reassign
-        message = processReplacements(escMessage);
-
-        const messageContainer
-            = `${'<div class="chatmessage">'
-                + '<img src="images/chatArrow.svg" class="chatArrow">'
-                + '<div class="username '}${divClassName}">${escDisplayName
-            }</div><div class="timestamp">${getCurrentTime(stamp)
-            }</div><div class="usermessage">${message}</div>`
-            + '</div>';
-
-        $('#chatconversation').append(messageContainer);
-        $('#chatconversation').animate(
-                { scrollTop: $('#chatconversation')[0].scrollHeight }, 1000);
-    },
-
-    /**
-     * Appends error message to the conversation
-     * @param errorMessage the received error message.
-     * @param originalText the original message.
-     */
-    chatAddError(errorMessage, originalText) {
-        // eslint-disable-next-line no-param-reassign
-        errorMessage = UIUtil.escapeHtml(errorMessage);
-        // eslint-disable-next-line no-param-reassign
-        originalText = UIUtil.escapeHtml(originalText);
-
-        $('#chatconversation').append(
-            `${'<div class="errorMessage"><b>Error: </b>Your message'}${
-                originalText ? ` "${originalText}"` : ''
-            } was not sent.${
-                errorMessage ? ` Reason: ${errorMessage}` : ''}</div>`);
-        $('#chatconversation').animate(
-            { scrollTop: $('#chatconversation')[0].scrollHeight }, 1000);
-    },
-
-    /**
-     * Sets the subject to the UI
-     * @param subject the subject
-     */
-    setSubject(subject) {
-        if (subject) {
-            // eslint-disable-next-line no-param-reassign
-            subject = subject.trim();
-        }
-
-        const html = linkify(UIUtil.escapeHtml(subject));
-
-        APP.store.dispatch(setSubject(html));
     },
 
     /**

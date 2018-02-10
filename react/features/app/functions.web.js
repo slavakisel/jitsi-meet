@@ -43,7 +43,7 @@ const _INTERCEPT_COMPONENT_RULES = [
     state => {
         const OS = Platform.OS;
 
-        if (OS === 'android' || OS === 'ios') {
+        if (OS === 'android') {
             const mobileAppPromo
                 = typeof interfaceConfig === 'object'
                     && interfaceConfig.MOBILE_APP_PROMO;

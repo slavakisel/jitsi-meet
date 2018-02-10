@@ -18,7 +18,6 @@ import {
     participantJoined,
     participantLeft
 } from '../../../react/features/base/participants';
-import { dockToolbox, showToolbox } from '../../../react/features/toolbox';
 
 import SharedVideoThumb from './SharedVideoThumb';
 
@@ -602,9 +601,6 @@ export default class SharedVideoManager {
         if (show) {
             this.showSharedVideoMutedPopup(false);
         }
-
-        APP.UI.showCustomToolbarPopup(
-            'microphone', 'micMutedPopup', show, 5000);
     }
 
     /**
@@ -617,9 +613,6 @@ export default class SharedVideoManager {
         if (show) {
             this.showMicMutedPopup(false);
         }
-
-        APP.UI.showCustomToolbarPopup(
-            'sharedvideo', 'sharedVideoMutedPopup', show, 5000);
     }
 }
 
@@ -650,7 +643,6 @@ class SharedVideoContainer extends LargeContainer {
                 self.bodyBackground = document.body.style.background;
                 document.body.style.background = 'black';
                 this.$iframe.css({ opacity: 1 });
-                APP.store.dispatch(dockToolbox(true));
                 resolve();
             });
         });
@@ -661,8 +653,6 @@ class SharedVideoContainer extends LargeContainer {
      */
     hide() {
         const self = this;
-
-        APP.store.dispatch(dockToolbox(false));
 
         return new Promise(resolve => {
             this.$iframe.fadeOut(300, () => {
@@ -677,7 +667,7 @@ class SharedVideoContainer extends LargeContainer {
      *
      */
     onHoverIn() {
-        APP.store.dispatch(showToolbox());
+        return null;
     }
 
     /**

@@ -5,7 +5,6 @@ const logger = require('jitsi-meet-logger').getLogger(__filename);
 const UI = {};
 
 import Chat from './side_pannels/chat/Chat';
-import SidePanels from './side_pannels/SidePanels';
 import SideContainerToggler from './side_pannels/SideContainerToggler';
 import messageHandler from './util/MessageHandler';
 import UIUtil from './util/UIUtil';
@@ -33,17 +32,6 @@ import {
     setNotificationsEnabled,
     showWarningNotification
 } from '../../react/features/notifications';
-import {
-    checkAutoEnableDesktopSharing,
-    clearButtonPopup,
-    dockToolbox,
-    setButtonPopupTimeout,
-    setToolbarButton,
-    showDialPadButton,
-    showEtherpadButton,
-    showSharedVideoButton,
-    showToolbox
-} from '../../react/features/toolbox';
 
 const EventEmitter = require('events');
 
@@ -217,17 +205,6 @@ UI.notifyConferenceDestroyed = function(reason) {
 };
 
 /**
- * Show chat error.
- * @param err the Error
- * @param msg
- */
-UI.showChatError = function(err, msg) {
-    if (!interfaceConfig.filmStripOnly) {
-        Chat.chatAddError(err, msg);
-    }
-};
-
-/**
  * Change nickname for the user.
  * @param {string} id user id
  * @param {string} displayName new nickname
@@ -279,14 +256,12 @@ UI.setLocalRaisedHandStatus
  * Initialize conference UI.
  */
 UI.initConference = function() {
-    const { dispatch, getState } = APP.store;
+    const { getState } = APP.store;
     const { email, id, name } = getLocalParticipant(getState);
 
     // Update default button states before showing the toolbar
     // if local role changes buttons state will be again updated.
     UI.updateLocalRole(APP.conference.isModerator);
-
-    UI.showToolbar();
 
     const displayName = config.displayJids ? id : name;
 
@@ -298,8 +273,6 @@ UI.initConference = function() {
     if (email) {
         UI.setUserEmail(id, email);
     }
-
-    dispatch(checkAutoEnableDesktopSharing());
 
     // FollowMe attempts to copy certain aspects of the moderator's UI into the
     // other participants' UI. Consequently, it needs (1) read and write access
@@ -359,12 +332,8 @@ UI.start = function() {
         if (config.enableRecording) {
             Recording.init(eventEmitter, config.recordingType);
         }
-
-        // Initialize side panels
-        SidePanels.init(eventEmitter);
     } else {
         $('body').addClass('filmstrip-only');
-        UI.showToolbar();
         Filmstrip.setFilmstripOnly();
         APP.store.dispatch(setNotificationsEnabled(false));
     }
@@ -465,12 +434,6 @@ UI.addRemoteStream = track => VideoLayout.onRemoteStreamAdded(track);
 UI.removeRemoteStream = track => VideoLayout.onRemoteStreamRemoved(track);
 
 /**
- * Update chat subject.
- * @param {string} subject new chat subject
- */
-UI.setSubject = subject => Chat.setSubject(subject);
-
-/**
  * Setup and show Etherpad.
  * @param {string} name etherpad id
  */
@@ -481,8 +444,6 @@ UI.initEtherpad = name => {
     logger.log('Etherpad is enabled');
     etherpadManager
         = new EtherpadManager(config.etherpad_base, name, eventEmitter);
-
-    APP.store.dispatch(showEtherpadButton());
 };
 
 /**
@@ -559,8 +520,6 @@ UI.onPeerVideoTypeChanged
  */
 UI.updateLocalRole = isModerator => {
     VideoLayout.showModeratorIndicator();
-
-    APP.store.dispatch(showSharedVideoButton());
 
     Recording.showRecordingButton(isModerator);
 
@@ -678,27 +637,6 @@ UI.inputDisplayNameHandler = function(newDisplayName) {
 };
 
 /**
- * Show custom popup/tooltip for a specified button.
- *
- * @param {string} buttonName - The name of the button as specified in the
- * button configurations for the toolbar.
- * @param {string} popupSelectorID - The id of the popup to show as specified in
- * the button configurations for the toolbar.
- * @param {boolean} show - True or false/show or hide the popup
- * @param {number} timeout - The time to show the popup
- * @returns {void}
- */
-// eslint-disable-next-line max-params
-UI.showCustomToolbarPopup = function(buttonName, popupID, show, timeout) {
-    const action
-        = show
-            ? setButtonPopupTimeout(buttonName, popupID, timeout)
-            : clearButtonPopup(buttonName);
-
-    APP.store.dispatch(action);
-};
-
-/**
  * Return the type of the remote video.
  * @param jid the jid for the remote video
  * @returns the video type video or screen.
@@ -811,12 +749,6 @@ UI.clickOnVideo = function(videoNumber) {
     videos[videoIndex].click();
 };
 
-// Used by torture.
-UI.showToolbar = timeout => APP.store.dispatch(showToolbox(timeout));
-
-// Used by torture.
-UI.dockToolbar = dock => APP.store.dispatch(dockToolbox(dock));
-
 /**
  * Update user email.
  * @param {string} id user id
@@ -921,17 +853,6 @@ UI.promptDisplayName = () => {
 UI.setAudioLevel = (id, lvl) => VideoLayout.setAudioLevel(id, lvl);
 
 /**
- * Update state of desktop sharing buttons.
- *
- * @returns {void}
- */
-UI.updateDesktopSharingButtons
-    = () =>
-        APP.store.dispatch(setToolbarButton('desktop', {
-            toggled: APP.conference.isSharingScreen
-        }));
-
-/**
  * Hide connection quality statistics from UI.
  */
 UI.hideStats = function() {
@@ -949,21 +870,6 @@ UI.markVideoInterrupted = function(interrupted) {
         VideoLayout.onVideoRestored();
     }
 };
-
-/**
- * Add chat message.
- * @param {string} from user id
- * @param {string} displayName user nickname
- * @param {string} message message text
- * @param {number} stamp timestamp when message was created
- */
-// eslint-disable-next-line max-params
-UI.addMessage = function(from, displayName, message, stamp) {
-    Chat.updateChatConversation(from, displayName, message, stamp);
-};
-
-UI.updateDTMFSupport
-    = isDTMFSupported => APP.store.dispatch(showDialPadButton(isDTMFSupported));
 
 UI.updateRecordingState = function(state) {
     Recording.updateRecordingState(state);
