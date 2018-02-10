@@ -78,7 +78,7 @@ var interfaceConfig = {
 
     // Enables feedback star animation.
     ENABLE_FEEDBACK_ANIMATION: false,
-    DISABLE_FOCUS_INDICATOR: false,
+    DISABLE_FOCUS_INDICATOR: true,
     DISABLE_DOMINANT_SPEAKER_INDICATOR: false,
 
     /**
