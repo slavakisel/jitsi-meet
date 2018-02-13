@@ -25,7 +25,6 @@ export function shouldRemoteVideosBeVisible(state: Object) {
             // the toolbar is displayed.
             || (participantCount > 1
                 && (state['features/filmstrip'].hovered
-                    || state['features/toolbox'].visible
                     || ((pinnedParticipant = getPinnedParticipant(participants))
                         && pinnedParticipant.local)))
 

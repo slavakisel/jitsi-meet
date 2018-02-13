@@ -355,7 +355,7 @@ function _mapStateToProps(state) {
          * @private
          * @type {boolean}
          */
-        _toolboxVisible: state['features/toolbox'].visible
+        _toolboxVisible: false
     };
 }
 
