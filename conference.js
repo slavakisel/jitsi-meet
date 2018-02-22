@@ -1314,45 +1314,35 @@ export default {
      * @returns {Promise}
      */
     useVideoStream(newStream) {
-        const oldStream = this.localVideo;
-
         return APP.store.dispatch(
             replaceLocalTrack(this.localVideo, newStream, room))
             .then(() => {
                 this.localVideo = newStream;
-
+                this._setSharingScreen(newStream);
                 if (newStream) {
-                    this.isSharingScreen = newStream.videoType === 'desktop';
-
                     APP.UI.addLocalStream(newStream);
-                } else {
-                    this.isSharingScreen = false;
                 }
                 this.setVideoMuteStatus(this.isLocalVideoMuted());
-                this._maybeUpdateScreenSharingStatus(oldStream, newStream);
             });
     },
 
     /**
-     * Compares previous and provided video stream types.
-     * If desktop sharing was stopped/started it notifies external application.
+     * Sets `this.isSharingScreen` depending on provided video stream.
+     * In case new screen sharing status is not equal previous one
+     * it updates desktop sharing buttons in UI
+     * and notifies external application.
      *
-     * @param {JitsiLocalTrack} [oldStream] previously used stream or null
      * @param {JitsiLocalTrack} [newStream] new stream to use or null
      * @private
      * @returns {void}
      */
-    _maybeUpdateScreenSharingStatus(oldStream, newStream) {
-        const oldVideoType = oldStream && oldStream.videoType;
-        const newVideoType = newStream && newStream.videoType;
+    _setSharingScreen(newStream) {
+        const wasSharingScreen = this.isSharingScreen;
 
-        const sharingStatusChanged = oldVideoType !== newVideoType
-            && (oldVideoType === 'desktop' || newVideoType === 'desktop');
+        this.isSharingScreen = newStream && newStream.videoType === 'desktop';
 
-        if (sharingStatusChanged) {
-            APP.API.notifyScreenSharingStatusChanged(
-                this.isSharingScreen
-            );
+        if (wasSharingScreen !== this.isSharingScreen) {
+            APP.API.notifyScreenSharingStatusChanged(this.isSharingScreen);
         }
     },
 
