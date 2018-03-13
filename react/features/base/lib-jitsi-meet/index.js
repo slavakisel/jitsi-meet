@@ -1,3 +1,5 @@
+// @flow
+
 // Re-export JitsiMeetJS from the library lib-jitsi-meet to (the other features
 // of) the project jitsi-meet.
 import JitsiMeetJS from './_';
@@ -21,6 +23,11 @@ export const JitsiRecordingStatus = JitsiMeetJS.constants.recordingStatus;
 export const JitsiSIPVideoGWStatus = JitsiMeetJS.constants.sipVideoGW;
 export const JitsiTrackErrors = JitsiMeetJS.errors.track;
 export const JitsiTrackEvents = JitsiMeetJS.events.track;
+
+export type JitsiTrackError = {
+  name: string,
+  message: string,
+}
 
 export * from './actions';
 export * from './actionTypes';

@@ -658,13 +658,13 @@ export default {
                         // If both requests for 'audio' + 'video' and 'audio'
                         // only failed, we assume that there are some problems
                         // with user's microphone and show corresponding dialog.
-                        APP.UI.showMicErrorNotification(audioOnlyError);
-                        APP.UI.showCameraErrorNotification(videoOnlyError);
+                        this.fireMicErrorNotification(audioOnlyError);
+                        this.fireCameraErrorNotification(videoOnlyError);
                     } else {
                         // If request for 'audio' + 'video' failed, but request
                         // for 'audio' only was OK, we assume that we had
                         // problems with camera and show corresponding dialog.
-                        APP.UI.showCameraErrorNotification(audioAndVideoError);
+                        this.fireCameraErrorNotification(audioAndVideoError);
                     }
                 }
 
@@ -827,7 +827,7 @@ export default {
 
         if (!this.localAudio && !mute) {
             const maybeShowErrorDialog = error => {
-                showUI && APP.UI.showMicErrorNotification(error);
+                showUI && this.fireMicErrorNotification(error);
             };
 
             createLocalTracksF({ devices: [ 'audio' ] }, false)
@@ -893,7 +893,7 @@ export default {
         // get user media call is blocked on "ask user for permissions" dialog.
         if (!this.localVideo && !mute) {
             const maybeShowErrorDialog = error => {
-                showUI && APP.UI.showCameraErrorNotification(error);
+                showUI && this.fireCameraErrorNotification(error);
             };
 
             // Try to create local video if there wasn't any.
@@ -918,6 +918,14 @@ export default {
             // FIXME show error dialog if it fails (should be handled by react)
             muteLocalVideo(mute);
         }
+    },
+
+    fireCameraErrorNotification(error) {
+        APP.API.notifyAboutCameraError(error);
+    },
+
+    fireMicErrorNotification(error) {
+        APP.API.notifyAboutMicError(error);
     },
 
     /**
@@ -2125,7 +2133,7 @@ export default {
                     APP.settings.setCameraDeviceId(cameraDeviceId, true);
                 })
                 .catch(err => {
-                    APP.UI.showCameraErrorNotification(err);
+                    this.fireCameraErrorNotification(err);
                 });
             }
         );
@@ -2157,7 +2165,7 @@ export default {
                     APP.settings.setMicDeviceId(micDeviceId, true);
                 })
                 .catch(err => {
-                    APP.UI.showMicErrorNotification(err);
+                    this.fireMicErrorNotification(err);
                 });
             }
         );

@@ -10,6 +10,7 @@ import { getJitsiMeetTransport } from '../transport';
 import {
     openDeviceSelectionDialog
 } from '../../react/features/device-selection';
+import type { JitsiTrackError } from '../../react/features/base/lib-jitsi-meet';
 
 import { API_ID } from './constants';
 
@@ -470,6 +471,45 @@ class API {
             name: 'local-raised-hand-status-changed',
             raised
         });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that
+     * camera realted error occured.
+     *
+     * @param {JitsiTrackError} error - An error object related to using or
+     * acquiring an video stream.
+     * @returns {void}
+     */
+    notifyAboutCameraError(error: JitsiTrackError) {
+        this._sendEvent({
+            name: 'camera-error-happened',
+            error
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) that
+     * mic related error occured.
+     *
+     * @param {JitsiTrackError} error - An error object related to using or
+     * acquiring an audio stream.
+     * @returns {void}
+     */
+    notifyAboutMicError(error: JitsiTrackError) {
+        this._sendEvent({
+            name: 'mic-error-happened',
+            error
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) about possible suboptimal experience.
+     *
+     * @returns {void}
+     */
+    notifyAboutSuboptimalExperience() {
+      this._sendEvent({ name: 'suboptimal-experience' });
     }
 
     /**

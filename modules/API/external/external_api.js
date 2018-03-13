@@ -52,7 +52,10 @@ const events = {
     'video-availability-changed': 'videoAvailabilityChanged',
     'video-mute-status-changed': 'videoMuteStatusChanged',
     'screen-sharing-status-changed': 'screenSharingStatusChanged',
-    'local-raised-hand-status-changed': 'localRaisedHandStatusChanged'
+    'local-raised-hand-status-changed': 'localRaisedHandStatusChanged',
+    'mic-error-happened': 'micErrorHappened',
+    'camera-error-happened': 'cameraErrorHappened',
+    'suboptimal-experience': 'suboptimalExperience'
 };
 
 /**

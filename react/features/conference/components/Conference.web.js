@@ -12,7 +12,7 @@ import { LargeVideo } from '../../large-video';
 import { NotificationsContainer } from '../../notifications';
 import { HideNotificationBarStyle } from '../../unsupported-browser';
 
-import { maybeShowSuboptimalExperienceNotification } from '../functions';
+import { maybeSuboptimalExperience, showSuboptimalExperienceNotification } from '../functions';
 
 declare var APP: Object;
 declare var interfaceConfig: Object;
@@ -51,7 +51,9 @@ class Conference extends Component<Props> {
         const { dispatch, t } = this.props;
 
         dispatch(connect());
-        maybeShowSuboptimalExperienceNotification(dispatch, t);
+        if (maybeSuboptimalExperience()) {
+            APP.API.notifyAboutSuboptimalExperience();
+        }
     }
 
     /**

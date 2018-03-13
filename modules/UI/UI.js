@@ -17,11 +17,12 @@ import VideoLayout from './videolayout/VideoLayout';
 import Filmstrip from './videolayout/Filmstrip';
 import Profile from './side_pannels/profile/Profile';
 
+import TrackErrorDetails from './TrackErrorDetails';
+
 import {
     openDeviceSelectionDialog
 } from '../../react/features/device-selection';
 import { updateDeviceList } from '../../react/features/base/devices';
-import { JitsiTrackErrors } from '../../react/features/base/lib-jitsi-meet';
 import {
     getLocalParticipant,
     participantPresenceChanged,
@@ -46,39 +47,6 @@ let etherpadManager;
 let sharedVideoManager;
 
 let followMeHandler;
-
-const JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP = {
-    microphone: {},
-    camera: {}
-};
-
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .camera[JitsiTrackErrors.UNSUPPORTED_RESOLUTION]
-        = 'dialog.cameraUnsupportedResolutionError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.GENERAL]
-    = 'dialog.cameraUnknownError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.PERMISSION_DENIED]
-    = 'dialog.cameraPermissionDeniedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.NOT_FOUND]
-    = 'dialog.cameraNotFoundError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[JitsiTrackErrors.CONSTRAINT_FAILED]
-    = 'dialog.cameraConstraintFailedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .camera[JitsiTrackErrors.NO_DATA_FROM_SOURCE]
-        = 'dialog.cameraNotSendingData';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[JitsiTrackErrors.GENERAL]
-    = 'dialog.micUnknownError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .microphone[JitsiTrackErrors.PERMISSION_DENIED]
-        = 'dialog.micPermissionDeniedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[JitsiTrackErrors.NOT_FOUND]
-    = 'dialog.micNotFoundError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .microphone[JitsiTrackErrors.CONSTRAINT_FAILED]
-        = 'dialog.micConstraintFailedError';
-JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-    .microphone[JitsiTrackErrors.NO_DATA_FROM_SOURCE]
-        = 'dialog.micNotSendingData';
 
 const UIListeners = new Map([
     [
@@ -1062,21 +1030,14 @@ UI.showMicErrorNotification = function(micError) {
         return;
     }
 
-    const { message, name } = micError;
+    const errorDetails = TrackErrorDetails.micError(micError);
 
-    const micJitsiTrackErrorMsg
-        = JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[name];
-    const micErrorMsg = micJitsiTrackErrorMsg
-        || JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-            .microphone[JitsiTrackErrors.GENERAL];
-    const additionalMicErrorMsg = micJitsiTrackErrorMsg ? null : message;
+    const { errorMsg, additionalErrorMsg, title } = errorDetails;
 
     APP.store.dispatch(showWarningNotification({
-        description: additionalMicErrorMsg,
-        descriptionKey: micErrorMsg,
-        titleKey: name === JitsiTrackErrors.PERMISSION_DENIED
-            ? 'deviceError.microphonePermission'
-            : 'deviceError.microphoneError'
+        description: additionalErrorMsg,
+        descriptionKey: errorMsg,
+        titleKey: title
     }));
 };
 
@@ -1092,20 +1053,14 @@ UI.showCameraErrorNotification = function(cameraError) {
         return;
     }
 
-    const { message, name } = cameraError;
+    const errorDetails = TrackErrorDetails.cameraError(cameraError);
 
-    const cameraJitsiTrackErrorMsg
-        = JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[name];
-    const cameraErrorMsg = cameraJitsiTrackErrorMsg
-        || JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP
-            .camera[JitsiTrackErrors.GENERAL];
-    const additionalCameraErrorMsg = cameraJitsiTrackErrorMsg ? null : message;
+    const { errorMsg, additionalErrorMsg, title } = errorDetails;
 
     APP.store.dispatch(showWarningNotification({
-        description: additionalCameraErrorMsg,
-        descriptionKey: cameraErrorMsg,
-        titleKey: name === JitsiTrackErrors.PERMISSION_DENIED
-            ? 'deviceError.cameraPermission' : 'deviceError.cameraError'
+        description: additionalErrorMsg,
+        descriptionKey: errorMsg,
+        titleKey: title
     }));
 };
 

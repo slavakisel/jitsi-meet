@@ -259,6 +259,28 @@ changes. The listener will receive an object with the following structure:
 
 * **readyToClose** - event notification fired when Jitsi Meet is ready to be closed (hangup operations are completed).
 
+* **micErrorHappened** - event notification fired when mic error has happened.
+```javascript
+{
+  "error": {
+    "name": name,
+    "message": message
+  }
+}
+```
+
+* **cameraErrorHappened** - event notification fired when mic error has happened.
+```javascript
+{
+  "error": {
+    "name": name,
+    "message": message
+  }
+}
+```
+
+* **suboptimalExperience** - event notification fired if user browser can fully support jitsi.
+
 You can also add multiple event listeners by using `addEventListeners`.
 This method requires one argument of type Object. The object argument must
 have the names of the events as keys and the listeners of the events as values.
