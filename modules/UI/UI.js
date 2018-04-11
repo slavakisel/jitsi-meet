@@ -436,8 +436,6 @@ UI.addUser = function(user) {
 
         // FIXME: move updateUserStatus in participantPresenceChanged action
         UI.updateUserStatus(user, status);
-    } else {
-        APP.store.dispatch(showParticipantJoinedNotification(displayName));
     }
 
     if (!config.startAudioMuted
@@ -460,12 +458,8 @@ UI.addUser = function(user) {
 /**
  * Remove user from UI.
  * @param {string} id   user id
- * @param {string} displayName user nickname
  */
-UI.removeUser = function(id, displayName) {
-    messageHandler.participantNotification(
-        displayName, 'notify.somebody', 'disconnected', 'notify.disconnected');
-
+UI.removeUser = function(id) {
     if (!config.startAudioMuted
             || config.startAudioMuted > APP.conference.membersCount) {
         UIUtil.playSoundNotification('userLeft');

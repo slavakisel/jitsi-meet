@@ -141,9 +141,9 @@ function connect(roomName) {
     })
     .catch(err => {
         if (err === JitsiConnectionErrors.PASSWORD_REQUIRED) {
-            APP.UI.notifyTokenAuthFailed();
+            APP.API.notifyTokenAuthFailed();
         } else {
-            APP.UI.notifyConnectionFailed(err);
+            APP.API.notifyConnectionFailed(err);
         }
         throw err;
     });
@@ -298,7 +298,7 @@ class ConferenceConnector {
         case JitsiConferenceErrors.CONNECTION_ERROR: {
             const [ msg ] = params;
 
-            APP.UI.notifyConnectionFailed(msg);
+            APP.API.notifyConnectionFailed(msg);
             break;
         }
 
@@ -329,13 +329,13 @@ class ConferenceConnector {
         }
 
         case JitsiConferenceErrors.GRACEFUL_SHUTDOWN:
-            APP.UI.notifyGracefulShutdown();
+            APP.API.notifyGracefulShutdown();
             break;
 
         case JitsiConferenceErrors.JINGLE_FATAL_ERROR: {
             const [ error ] = params;
 
-            APP.UI.notifyInternalError(error);
+            APP.API.notifyInternalError(error);
             break;
         }
 
@@ -343,7 +343,7 @@ class ConferenceConnector {
             const [ reason ] = params;
 
             APP.UI.hideStats();
-            APP.UI.notifyConferenceDestroyed(reason);
+            APP.API.notifyConferenceDestroyed(reason);
             break;
         }
 
@@ -368,7 +368,7 @@ class ConferenceConnector {
 
         case JitsiConferenceErrors.CONFERENCE_MAX_USERS:
             connection.disconnect();
-            APP.UI.notifyMaxUsersLimitReached();
+            APP.API.notifyMaxUsersLimitReached();
             break;
 
         case JitsiConferenceErrors.INCOMPATIBLE_SERVER_VERSIONS:
@@ -1737,10 +1737,16 @@ export default {
         });
 
         room.on(JitsiConferenceEvents.USER_LEFT, (id, user) => {
+            const displayName = user.getDisplayName();
+
             APP.store.dispatch(participantLeft(id, user));
             logger.log('USER %s LEFT', id, user);
-            APP.API.notifyUserLeft(id);
-            APP.UI.removeUser(id, user.getDisplayName());
+            APP.API.notifyUserLeft(id, {
+                displayName,
+                formattedDisplayName: appendSuffix(
+                    displayName || interfaceConfig.DEFAULT_REMOTE_DISPLAY_NAME)
+            });
+            APP.UI.removeUser(id);
             APP.UI.onSharedVideoStop(id);
         });
 
@@ -1949,7 +1955,7 @@ export default {
 
         room.on(JitsiConferenceEvents.KICKED, () => {
             APP.UI.hideStats();
-            APP.UI.notifyKicked();
+            APP.API.notifyKicked();
 
             // FIXME close
         });
@@ -2040,7 +2046,7 @@ export default {
         );
         room.on(JitsiConferenceEvents.STARTED_MUTED, () => {
             (room.isStartAudioMuted() || room.isStartVideoMuted())
-                && APP.UI.notifyInitiallyMuted();
+                && APP.API.notifyInitiallyMuted();
         });
 
         room.on(
