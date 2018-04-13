@@ -1,6 +1,6 @@
 *.swp
 .*.tmp
-deploy-local.sh
+deploy-local*
 libs/
 all.css
 *css.map
