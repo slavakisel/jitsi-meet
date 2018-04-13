@@ -55,7 +55,15 @@ const events = {
     'local-raised-hand-status-changed': 'localRaisedHandStatusChanged',
     'mic-error-happened': 'micErrorHappened',
     'camera-error-happened': 'cameraErrorHappened',
-    'suboptimal-experience': 'suboptimalExperience'
+    'suboptimal-experience': 'suboptimalExperience',
+    'user-kicked': 'userKicked',
+    'conference-destroyed': 'conferenceDestroyed',
+    'graceful-shutdown': 'gracefulShutdown',
+    'connection-failed': 'connectionFailed',
+    'internal-error': 'internalError',
+    'token-auth-failed': 'tokenAuthFailed',
+    'max-users-limit-reached': 'maxUsersLimitReached',
+    'initially-muted': 'initiallyMuted'
 };
 
 /**

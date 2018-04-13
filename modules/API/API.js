@@ -273,12 +273,14 @@ class API {
      * conference.
      *
      * @param {string} id - User id.
+     * @param {Object} props - The display name of the user.
      * @returns {void}
      */
-    notifyUserLeft(id: string) {
+    notifyUserLeft(id: string, props: Object) {
         this._sendEvent({
             name: 'participant-left',
-            id
+            id,
+            ...props
         });
     }
 
@@ -509,7 +511,91 @@ class API {
      * @returns {void}
      */
     notifyAboutSuboptimalExperience() {
-      this._sendEvent({ name: 'suboptimal-experience' });
+        this._sendEvent({ name: 'suboptimal-experience' });
+    }
+
+    /**
+     * Notify user that he has been kicked from the server.
+     *
+     * @returns {void}
+     */
+    notifyKicked() {
+        this._sendEvent({ name: 'user-kicked' });
+    }
+
+    /**
+     * Notify user that conference was destroyed.
+     *
+     * @param {string} msg - the reason text
+     * @returns {void}
+     */
+    notifyConferenceDestroyed(msg: string) {
+        this._sendEvent({
+            name: 'conference-destroyed',
+            msg
+        });
+    }
+
+    /**
+     * Notify user that server has shut down.
+     *
+     * @returns {void}
+     */
+    notifyGracefulShutdown() {
+        this._sendEvent({ name: 'graceful-shutdown' });
+    }
+
+    /**
+     * Notify user that connection failed.
+     *
+     * @param {string} msg - raw error message
+     * @returns {void}
+     */
+    notifyConnectionFailed(msg: string) {
+        this._sendEvent({
+            name: 'connection-failed',
+            msg
+        });
+    }
+
+    /**
+     * Notify user about internal error.
+     *
+     * @param {string} msg - raw error message
+     * @returns {void}
+     */
+    notifyInternalError(msg: string) {
+        this._sendEvent({
+            name: 'internal-error',
+            msg
+        });
+    }
+
+    /**
+     * Notify user about internal error.
+     *
+     * @returns {void}
+     */
+    notifyTokenAuthFailed() {
+        this._sendEvent({ name: 'token-auth-failed' });
+    }
+
+    /**
+     * Notify user that maximum users limit has been reached.
+     *
+     * @returns {void}
+     */
+    notifyMaxUsersLimitReached() {
+        this._sendEvent({ name: 'max-users-limit-reached' });
+    }
+
+    /**
+     * Notify user that he was automatically muted when joned the conference.
+     *
+     * @returns {void}
+     */
+    notifyInitiallyMuted() {
+        this._sendEvent({ name: 'initially-muted' });
     }
 
     /**
