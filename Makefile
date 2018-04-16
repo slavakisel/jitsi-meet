@@ -57,6 +57,9 @@ deploy-css:
 deploy-local:
 	([ ! -x deploy-local.sh ] || ./deploy-local.sh)
 
+deploy-local-staging:
+	([ ! -x deploy-local-staging.sh ] || ./deploy-local-staging.sh)
+
 source-package:
 	mkdir -p source_package/jitsi-meet/css && \
 	cp -r *.js *.html connection_optimization favicon.ico fonts images libs static sounds LICENSE lang source_package/jitsi-meet && \
