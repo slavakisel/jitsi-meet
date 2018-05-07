@@ -6,6 +6,23 @@ import { ColorPalette } from '../../../styles';
  * The styles of the feature base/media.
  */
 export default StyleSheet.create({
+
+    /**
+     * Base style of the transformed video view.
+     */
+    videoTranformedView: {
+        flex: 1
+    },
+
+    /**
+     * A basic style to avoid rendering a transformed view off the component,
+     * that can be visible on special occasions, such as during device rotate
+     * animation, or PiP mode.
+     */
+    videoTransformedViewContaier: {
+        overflow: 'hidden'
+    },
+
     /**
      * Make {@code Video} fill its container.
      */
@@ -19,10 +36,10 @@ export default StyleSheet.create({
      */
     videoCover: {
         backgroundColor: ColorPalette.black,
-        height: '100%',
+        bottom: 0,
         left: 0,
         position: 'absolute',
-        top: 0,
-        width: '100%'
+        right: 0,
+        top: 0
     }
 });

@@ -12,13 +12,11 @@ import {
     localParticipantJoined,
     localParticipantLeft
 } from '../../base/participants';
+import '../../base/profile';
 import { Fragment, RouteRegistry } from '../../base/react';
-import {
-    getPersistedState,
-    MiddlewareRegistry,
-    ReducerRegistry
-} from '../../base/redux';
-import { getProfile } from '../../base/profile';
+import { MiddlewareRegistry, ReducerRegistry } from '../../base/redux';
+import { SoundCollection } from '../../base/sounds';
+import { PersistenceRegistry } from '../../base/storage';
 import { toURLString } from '../../base/util';
 import { OverlayContainer } from '../../overlay';
 import { BlankPage } from '../../welcome';
@@ -100,17 +98,22 @@ export class AbstractApp extends Component {
         };
 
         /**
-         * This way we make the mobile version wait until the
-         * {@code AsyncStorage} implementation of {@code Storage}
-         * properly initializes. On web it does actually nothing, see
-         * {@link #_initStorage}.
+         * Make the mobile {@code AbstractApp} wait until the
+         * {@code AsyncStorage} implementation of {@code Storage} initializes
+         * fully.
+         *
+         * @private
+         * @see {@link #_initStorage}
+         * @type {Promise}
          */
-        this.init = this._initStorage().then(() => {
-            this.setState({
-                route: undefined,
-                store: this._maybeCreateStore(props)
-            });
-        });
+        this._init
+            = this._initStorage()
+                .catch(() => { /* AbstractApp should always initialize! */ })
+                .then(() =>
+                    this.setState({
+                        route: undefined,
+                        store: this._maybeCreateStore(props)
+                    }));
     }
 
     /**
@@ -120,8 +123,8 @@ export class AbstractApp extends Component {
      * @inheritdoc
      */
     componentWillMount() {
-        this.init.then(() => {
-            const { dispatch } = this._getStore();
+        this._init.then(() => {
+            const { dispatch, getState } = this._getStore();
 
             dispatch(appWillMount(this));
 
@@ -142,7 +145,7 @@ export class AbstractApp extends Component {
             }
 
             // Profile is the new React compatible settings.
-            const profile = getProfile(this._getStore().getState());
+            const profile = getState()['features/base/profile'];
 
             if (profile) {
                 localParticipant.email
@@ -178,7 +181,7 @@ export class AbstractApp extends Component {
     componentWillReceiveProps(nextProps) {
         const { props } = this;
 
-        this.init.then(() => {
+        this._init.then(() => {
             // The consumer of this AbstractApp did not provide a redux store.
             if (typeof nextProps.store === 'undefined'
 
@@ -239,18 +242,21 @@ export class AbstractApp extends Component {
     }
 
     /**
-     * Delays app start until the {@code Storage} implementation initialises.
-     * This is instantaneous on web, but is async on mobile.
+     * Delays this {@code AbstractApp}'s startup until the {@code Storage}
+     * implementation of {@code localStorage} initializes. While the
+     * initialization is instantaneous on Web (with Web Storage API), it is
+     * asynchronous on mobile/react-native.
      *
      * @private
-     * @returns {ReactElement}
+     * @returns {Promise}
      */
     _initStorage() {
-        if (typeof window.localStorage._initialized !== 'undefined') {
-            return window.localStorage._initialized;
-        }
+        const localStorageInitializing = window.localStorage._initializing;
 
-        return Promise.resolve();
+        return (
+            typeof localStorageInitializing === 'undefined'
+                ? Promise.resolve()
+                : localStorageInitializing);
     }
 
     /**
@@ -269,6 +275,7 @@ export class AbstractApp extends Component {
                     <Provider store = { this._getStore() }>
                         <Fragment>
                             { this._createElement(component) }
+                            <SoundCollection />
                             <OverlayContainer />
                         </Fragment>
                     </Provider>
@@ -346,7 +353,11 @@ export class AbstractApp extends Component {
             middleware = compose(middleware, devToolsExtension());
         }
 
-        return createStore(reducer, getPersistedState(), middleware);
+        return (
+            createStore(
+                reducer,
+                PersistenceRegistry.getPersistedState(),
+                middleware));
     }
 
     /**
@@ -372,7 +383,8 @@ export class AbstractApp extends Component {
 
         return (
             this.props.defaultURL
-                || getProfile(this._getStore().getState()).serverURL
+                || this._getStore().getState()['features/base/profile']
+                    .serverURL
                 || DEFAULT_URL);
     }
 
@@ -491,7 +503,7 @@ export class AbstractApp extends Component {
     /**
      * Navigates this {@code AbstractApp} to (i.e. opens) a specific URL.
      *
-     * @param {string|Object} url - The URL to navigate this {@code AbstractApp}
+     * @param {Object|string} url - The URL to navigate this {@code AbstractApp}
      * to (i.e. the URL to open).
      * @protected
      * @returns {void}

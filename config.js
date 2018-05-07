@@ -57,6 +57,9 @@ var config = {
         // P2P test mode disables automatic switching to P2P when there are 2
         // participants in the conference.
         p2pTestMode: false
+
+        // Enables the test specific features consumed by jitsi-meet-torture
+        // testMode: false
     },
 
     // Disables ICE/UDP by filtering out local and remote UDP candidates in
@@ -150,22 +153,14 @@ var config = {
     // Required version of Chrome extension
     desktopSharingChromeMinExtVersion: '0.1',
 
-    // The ID of the jidesha extension for Firefox. If null, we assume that no
-    // extension is required.
-    desktopSharingFirefoxExtId: null,
-
     // Whether desktop sharing should be disabled on Firefox.
     desktopSharingFirefoxDisabled: false,
 
-    // The maximum version of Firefox which requires a jidesha extension.
-    // Example: if set to 41, we will require the extension for Firefox versions
-    // up to and including 41. On Firefox 42 and higher, we will run without the
-    // extension.
-    // If set to -1, an extension will be required for all versions of Firefox.
-    desktopSharingFirefoxMaxVersionExtRequired: 51,
-
-    // The URL to the Firefox extension for desktop sharing.
-    desktopSharingFirefoxExtensionURL: null,
+    // Optional desktop sharing frame rate options. Default value: min:5, max:5.
+    // desktopSharingFrameRate: {
+    //     min: 5,
+    //     max: 5
+    // },
 
     // Try to start calls with screen-sharing instead of camera video.
     // startScreenSharing: false,
@@ -185,6 +180,23 @@ var config = {
 
     // Disables or enables RTX (RFC 4588) (defaults to false).
     // disableRtx: false,
+
+    // Disables or enables TCC (the default is in Jicofo and set to true)
+    // (draft-holmer-rmcat-transport-wide-cc-extensions-01). This setting
+    // affects congestion control, it practically enables send-side bandwidth
+    // estimations.
+    // enableTcc: true,
+
+    // Disables or enables REMB (the default is in Jicofo and set to false)
+    // (draft-alvestrand-rmcat-remb-03). This setting affects congestion
+    // control, it practically enables recv-side bandwidth estimations. When
+    // both TCC and REMB are enabled, TCC takes precedence. When both are
+    // disabled, then bandwidth estimations are disabled.
+    // enableRemb: false,
+
+    // Defines the minimum number of participants to start a call (the default
+    // is set in Jicofo and set to 2).
+    // minParticipants: 2,
 
     // Use XEP-0215 to fetch STUN and TURN servers.
     // useStunTurn: true,
@@ -239,8 +251,11 @@ var config = {
     // Stats
     //
 
-    // Whether to enable stats collection or not.
-    // disableStats: false,
+    // Whether to enable stats collection or not in the TraceablePeerConnection.
+    // This can be useful for debugging purposes (post-processing/analysis of
+    // the webrtc stats) as it is done in the jitsi-meet-torture bandwidth
+    // estimation tests.
+    // gatherStats: false,
 
     // To enable sending statistics to callstats.io you must provide the
     // Application ID and Secret.
@@ -313,6 +328,9 @@ var config = {
     //      "https://example.com/my-custom-analytics.js"
     // ],
 
+    // The Google Analytics Tracking ID
+    // googleAnalyticsTrackingId = 'your-tracking-id-here-UA-123456-1',
+
     // Information about the jitsi-meet instance we are connecting to, including
     // the user region as seen by the server.
     deploymentInfo: {
@@ -321,11 +339,9 @@ var config = {
         // userRegion: "asia"
     }
 
-
     // List of undocumented settings used in jitsi-meet
     /**
      alwaysVisibleToolbar
-     autoEnableDesktopSharing
      autoRecord
      autoRecordToken
      debug
@@ -341,6 +357,7 @@ var config = {
      etherpad_base
      externalConnectUrl
      firefox_fake_device
+     googleApiApplicationClientID
      iAmRecorder
      iAmSipGateway
      peopleSearchQueryTypes

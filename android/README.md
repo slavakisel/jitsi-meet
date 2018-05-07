@@ -43,16 +43,6 @@ Add the Maven repository
 `https://github.com/jitsi/jitsi-maven-repository/raw/master/releases` and the
 dependency `org.jitsi.react:jitsi-meet-sdk:1.9.0` into your `build.gradle`.
 
-Add Java 1.8 compatibility support to your project by adding the following lines
-into your `build.gradle` file:
-
-```
-compileOptions {
-    sourceCompatibility JavaVersion.VERSION_1_8
-    targetCompatibility JavaVersion.VERSION_1_8
-}
-```
-
 ## API
 
 Jitsi Meet SDK is an Android library which embodies the whole Jitsi Meet
@@ -118,17 +108,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-
-        JitsiMeetView.onHostPause(this);
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
 
         JitsiMeetView.onHostResume(this);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        JitsiMeetView.onHostPause(this);
     }
 }
 ```
@@ -142,6 +132,10 @@ which displays a single `JitsiMeetView`.
 
 See JitsiMeetView.getDefaultURL.
 
+#### getPictureInPictureEnabled()
+
+See JitsiMeetView.getPictureInPictureEnabled.
+
 #### getWelcomePageEnabled()
 
 See JitsiMeetView.getWelcomePageEnabled.
@@ -153,6 +147,10 @@ See JitsiMeetView.loadURL.
 #### setDefaultURL(URL)
 
 See JitsiMeetView.setDefaultURL.
+
+#### setPictureInPictureEnabled(boolean)
+
+See JitsiMeetView.setPictureInPictureEnabled.
 
 #### setWelcomePageEnabled(boolean)
 
@@ -178,6 +176,12 @@ if set to `null`, the default built in JavaScript is used: https://meet.jit.si.
 #### getListener()
 
 Returns the `JitsiMeetViewListener` instance attached to the view.
+
+#### getPictureInPictureEnabled()
+
+Returns `true` if Picture-in-Picture is enabled; `false`, otherwise. If not
+explicitly set (by a preceding `setPictureInPictureEnabled` call), defaults to
+`true` if the platform supports Picture-in-Picture natively; `false`, otherwise.
 
 #### getWelcomePageEnabled()
 
@@ -220,19 +224,30 @@ view.loadURLObject(urlObject);
 
 Sets the default URL. See `getDefaultURL` for more information.
 
-NOTE: Must be called before `loadURL`/`loadURLString` for it to take effect.
+NOTE: Must be called before (if at all) `loadURL`/`loadURLString` for it to take
+effect.
 
 #### setListener(listener)
 
 Sets the given listener (class implementing the `JitsiMeetViewListener`
 interface) on the view.
 
+#### setPictureInPictureEnabled(boolean)
+
+Sets whether Picture-in-Picture is enabled. If not set, Jitsi Meet SDK
+automatically enables/disables Picture-in-Picture based on native platform
+support.
+
+NOTE: Must be called (if at all) before `loadURL`/`loadURLString` for it to take
+effect.
+
 #### setWelcomePageEnabled(boolean)
 
 Sets whether the Welcome page is enabled. See `getWelcomePageEnabled` for more
 information.
 
-NOTE: Must be called before `loadURL`/`loadURLString` for it to take effect.
+NOTE: Must be called (if at all) before `loadURL`/`loadURLString` for it to take
+effect.
 
 #### onBackPressed()
 
@@ -257,7 +272,8 @@ This is a static method.
 
 #### onHostResume(activity)
 
-Helper method which should be called from the activity's `onResume` method.
+Helper method which should be called from the activity's `onResume` or `onStop`
+method.
 
 This is a static method.
 
@@ -266,6 +282,13 @@ This is a static method.
 Helper method for integrating the *deep linking* functionality. If your app's
 activity is launched in "singleTask" mode this method should be called from the
 activity's `onNewIntent` method.
+
+This is a static method.
+
+#### onUserLeaveHint()
+
+Helper method for integrating automatic Picture-in-Picture. It should be called
+from the activity's `onUserLeaveHint` method.
 
 This is a static method.
 
@@ -379,9 +402,19 @@ rules file:
 # WebRTC
 
 -keep class org.webrtc.** { *; }
+-dontwarn org.chromium.build.BuildHooksAndroid
 
 # Jisti Meet SDK
 
 -keep class org.jitsi.meet.sdk.** { *; }
 ```
 
+## Picture-in-Picture
+
+`JitsiMeetView` will automatically adjust its UI when presented in a
+Picture-in-Picture style scenario, in a rectangle too small to accommodate its
+"full" UI.
+
+Jitsi Meet SDK automatically enables (unless explicitly disabled by a
+`setPictureInPictureEnabled(false)` call) Android's native Picture-in-Picture
+mode iff the platform is supported i.e. Android >= Oreo.

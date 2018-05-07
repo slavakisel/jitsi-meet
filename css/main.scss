@@ -28,11 +28,8 @@
 @import 'font-awesome';
 /* Fonts END */
 
-@import 'flag-icon';
-
 /* Modules BEGIN */
 
-@import 'dial-out';
 @import 'aui_reset';
 @import 'base';
 @import 'utils';
@@ -51,10 +48,10 @@
 @import 'popup_menu';
 @import 'recording';
 @import 'login_menu';
-@import 'contact_list';
 @import 'chat';
 @import 'ringing/ringing';
 @import 'welcome_page';
+@import 'welcome_page_content';
 @import 'toolbars';
 @import 'side_toolbar_container';
 @import 'jquery.contextMenu';
@@ -65,7 +62,6 @@
 @import 'components/button-control';
 @import 'components/input-control';
 @import 'components/input-slider';
-@import "modals/invite/invite";
 @import "connection-info";
 @import 'aui-components/dropdown';
 @import '404';
@@ -75,5 +71,6 @@
 @import 'unsupported-browser/main';
 @import 'modals/invite/add-people';
 @import 'vertical_filmstrip_overrides';
+@import 'deep-linking/main';
 
 /* Modules END */

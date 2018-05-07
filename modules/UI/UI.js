@@ -28,20 +28,16 @@ import {
     participantPresenceChanged,
     showParticipantJoinedNotification
 } from '../../react/features/base/participants';
+import { destroyLocalTracks } from '../../react/features/base/tracks';
 import { openDisplayNamePrompt } from '../../react/features/display-name';
+import { setEtherpadHasInitialzied } from '../../react/features/etherpad';
 import {
     setNotificationsEnabled,
     showWarningNotification
 } from '../../react/features/notifications';
+import { shouldShowOnlyDeviceSelection } from '../../react/features/settings';
 import {
-    checkAutoEnableDesktopSharing,
-    clearButtonPopup,
     dockToolbox,
-    setButtonPopupTimeout,
-    setToolbarButton,
-    showDialPadButton,
-    showEtherpadButton,
-    showSharedVideoButton,
     showToolbox
 } from '../../react/features/toolbox';
 
@@ -100,9 +96,6 @@ const UIListeners = new Map([
         UIEvents.SHARED_VIDEO_CLICKED,
         () => sharedVideoManager && sharedVideoManager.toggleSharedVideo()
     ], [
-        UIEvents.TOGGLE_FULLSCREEN,
-        () => UI.toggleFullScreen()
-    ], [
         UIEvents.TOGGLE_CHAT,
         () => UI.toggleChat()
     ], [
@@ -112,16 +105,12 @@ const UIListeners = new Map([
             // opened through a button in settings and not directly displayed in
             // settings itself. As it is not useful to only have a settings menu
             // with a button to open a dialog, open the dialog directly instead.
-            if (interfaceConfig.SETTINGS_SECTIONS.length === 1
-                    && UIUtil.isSettingEnabled('devices')) {
+            if (shouldShowOnlyDeviceSelection()) {
                 APP.store.dispatch(openDeviceSelectionDialog());
             } else {
                 UI.toggleSidePanel('settings_container');
             }
         }
-    ], [
-        UIEvents.TOGGLE_CONTACT_LIST,
-        () => UI.toggleContactList()
     ], [
         UIEvents.TOGGLE_PROFILE,
         () => UI.toggleSidePanel('profile_container')
@@ -133,14 +122,6 @@ const UIListeners = new Map([
         enabled => followMeHandler && followMeHandler.enableFollowMe(enabled)
     ]
 ]);
-
-/**
- * Toggles the application in and out of full screen mode
- * (a.k.a. presentation mode in Chrome).
- */
-UI.toggleFullScreen = function() {
-    UIUtil.isFullScreen() ? UIUtil.exitFullScreen() : UIUtil.enterFullScreen();
-};
 
 /**
  * Indicates if we're currently in full screen mode.
@@ -254,12 +235,20 @@ UI.showLocalConnectionInterrupted = function(isInterrupted) {
 
 /**
  * Sets the "raised hand" status for a participant.
+ *
+ * @param {string} id - The id of the participant whose raised hand UI should
+ * be updated.
+ * @param {string} name - The name of the participant with the raised hand
+ * update.
+ * @param {boolean} raisedHandStatus - Whether the participant's hand is raised
+ * or not.
+ * @returns {void}
  */
-UI.setRaisedHandStatus = (participant, raisedHandStatus) => {
-    VideoLayout.setRaisedHandStatus(participant.getId(), raisedHandStatus);
+UI.setRaisedHandStatus = (id, name, raisedHandStatus) => {
+    VideoLayout.setRaisedHandStatus(id, raisedHandStatus);
     if (raisedHandStatus) {
         messageHandler.participantNotification(
-            participant.getDisplayName(),
+            name,
             'notify.somebody',
             'connected',
             'notify.raisedHand');
@@ -279,7 +268,7 @@ UI.setLocalRaisedHandStatus
  * Initialize conference UI.
  */
 UI.initConference = function() {
-    const { dispatch, getState } = APP.store;
+    const { getState } = APP.store;
     const { email, id, name } = getLocalParticipant(getState);
 
     // Update default button states before showing the toolbar
@@ -298,8 +287,6 @@ UI.initConference = function() {
     if (email) {
         UI.setUserEmail(id, email);
     }
-
-    dispatch(checkAutoEnableDesktopSharing());
 
     // FollowMe attempts to copy certain aspects of the moderator's UI into the
     // other participants' UI. Consequently, it needs (1) read and write access
@@ -353,36 +340,30 @@ UI.start = function() {
     VideoLayout.resizeVideoArea(true, true);
 
     sharedVideoManager = new SharedVideoManager(eventEmitter);
-    // eslint-disable-next-line no-negated-condition
-    if (!interfaceConfig.filmStripOnly) {
+
+    if (interfaceConfig.filmStripOnly) {
+        $('body').addClass('filmstrip-only');
+        Filmstrip.setFilmstripOnly();
+        APP.store.dispatch(setNotificationsEnabled(false));
+    } else {
         // Initialise the recording module.
-        if (config.enableRecording) {
-            Recording.init(eventEmitter, config.recordingType);
-        }
+        config.enableRecording
+            && Recording.init(eventEmitter, config.recordingType);
 
         // Initialize side panels
         SidePanels.init(eventEmitter);
-    } else {
-        $('body').addClass('filmstrip-only');
-        UI.showToolbar();
-        Filmstrip.setFilmstripOnly();
-        APP.store.dispatch(setNotificationsEnabled(false));
+
+        // TODO: remove this class once the old toolbar has been removed. This
+        // class is set so that any CSS changes needed to adjust elements
+        // outside of the new toolbar can be scoped to just the app with the new
+        // toolbar enabled.
+        $('body').addClass('use-new-toolbox');
     }
 
-    if (interfaceConfig.VERTICAL_FILMSTRIP) {
-        $('body').addClass('vertical-filmstrip');
-    }
+    interfaceConfig.VERTICAL_FILMSTRIP
+        && $('body').addClass('vertical-filmstrip');
 
     document.title = interfaceConfig.APP_NAME;
-};
-
-/**
- * Invokes cleanup of any deferred execution within relevant UI modules.
- *
- * @returns {void}
- */
-UI.stopDaemons = () => {
-    VideoLayout.resetLargeVideo();
 };
 
 /**
@@ -412,12 +393,7 @@ UI.bindEvents = () => {
     // Resize and reposition videos in full screen mode.
     $(document).on(
             'webkitfullscreenchange mozfullscreenchange fullscreenchange',
-            () => {
-                eventEmitter.emit(
-                        UIEvents.FULLSCREEN_TOGGLED,
-                        UIUtil.isFullScreen());
-                onResize();
-            });
+            onResize);
 
     $(window).resize(onResize);
 };
@@ -465,12 +441,6 @@ UI.addRemoteStream = track => VideoLayout.onRemoteStreamAdded(track);
 UI.removeRemoteStream = track => VideoLayout.onRemoteStreamRemoved(track);
 
 /**
- * Update chat subject.
- * @param {string} subject new chat subject
- */
-UI.setSubject = subject => Chat.setSubject(subject);
-
-/**
  * Setup and show Etherpad.
  * @param {string} name etherpad id
  */
@@ -482,7 +452,7 @@ UI.initEtherpad = name => {
     etherpadManager
         = new EtherpadManager(config.etherpad_base, name, eventEmitter);
 
-    APP.store.dispatch(showEtherpadButton());
+    APP.store.dispatch(setEtherpadHasInitialzied());
 };
 
 /**
@@ -511,11 +481,6 @@ UI.addUser = function(user) {
         APP.store.dispatch(showParticipantJoinedNotification(displayName));
     }
 
-    if (!config.startAudioMuted
-        || config.startAudioMuted > APP.conference.membersCount) {
-        UIUtil.playSoundNotification('userJoined');
-    }
-
     // Add Peer's container
     VideoLayout.addParticipantContainer(user);
 
@@ -537,11 +502,6 @@ UI.removeUser = function(id, displayName) {
     messageHandler.participantNotification(
         displayName, 'notify.somebody', 'disconnected', 'notify.disconnected');
 
-    if (!config.startAudioMuted
-            || config.startAudioMuted > APP.conference.membersCount) {
-        UIUtil.playSoundNotification('userLeft');
-    }
-
     VideoLayout.removeParticipantContainer(id);
 };
 
@@ -559,10 +519,6 @@ UI.onPeerVideoTypeChanged
  */
 UI.updateLocalRole = isModerator => {
     VideoLayout.showModeratorIndicator();
-
-    APP.store.dispatch(showSharedVideoButton());
-
-    Recording.showRecordingButton(isModerator);
 
     if (isModerator) {
         if (!interfaceConfig.DISABLE_FOCUS_INDICATOR) {
@@ -658,11 +614,6 @@ UI.isChatVisible = () => Chat.isVisible();
 UI.toggleChat = () => UI.toggleSidePanel('chat_container');
 
 /**
- * Toggles contact list panel.
- */
-UI.toggleContactList = () => UI.toggleSidePanel('contacts_container');
-
-/**
  * Toggles the given side panel.
  *
  * @param {String} sidePanelId the identifier of the side panel to toggle
@@ -675,27 +626,6 @@ UI.toggleSidePanel = sidePanelId => SideContainerToggler.toggle(sidePanelId);
  */
 UI.inputDisplayNameHandler = function(newDisplayName) {
     eventEmitter.emit(UIEvents.NICKNAME_CHANGED, newDisplayName);
-};
-
-/**
- * Show custom popup/tooltip for a specified button.
- *
- * @param {string} buttonName - The name of the button as specified in the
- * button configurations for the toolbar.
- * @param {string} popupSelectorID - The id of the popup to show as specified in
- * the button configurations for the toolbar.
- * @param {boolean} show - True or false/show or hide the popup
- * @param {number} timeout - The time to show the popup
- * @returns {void}
- */
-// eslint-disable-next-line max-params
-UI.showCustomToolbarPopup = function(buttonName, popupID, show, timeout) {
-    const action
-        = show
-            ? setButtonPopupTimeout(buttonName, popupID, timeout)
-            : clearButtonPopup(buttonName);
-
-    APP.store.dispatch(action);
 };
 
 /**
@@ -921,17 +851,6 @@ UI.promptDisplayName = () => {
 UI.setAudioLevel = (id, lvl) => VideoLayout.setAudioLevel(id, lvl);
 
 /**
- * Update state of desktop sharing buttons.
- *
- * @returns {void}
- */
-UI.updateDesktopSharingButtons
-    = () =>
-        APP.store.dispatch(setToolbarButton('desktop', {
-            toggled: APP.conference.isSharingScreen
-        }));
-
-/**
  * Hide connection quality statistics from UI.
  */
 UI.hideStats = function() {
@@ -961,9 +880,6 @@ UI.markVideoInterrupted = function(interrupted) {
 UI.addMessage = function(from, displayName, message, stamp) {
     Chat.updateChatConversation(from, displayName, message, stamp);
 };
-
-UI.updateDTMFSupport
-    = isDTMFSupported => APP.store.dispatch(showDialPadButton(isDTMFSupported));
 
 UI.updateRecordingState = function(state) {
     Recording.updateRecordingState(state);
@@ -1056,16 +972,6 @@ UI.getLargeVideo = function() {
  * @returns {boolean} True if the user is currently pinned to the large video.
  */
 UI.isPinned = userId => VideoLayout.getPinnedId() === userId;
-
-/**
- * Shows dialog with a link to FF extension.
- */
-UI.showExtensionRequiredDialog = function(url) {
-    messageHandler.openMessageDialog(
-        'dialog.extensionRequired',
-        '[html]dialog.firefoxExtensionPrompt',
-        { url });
-};
 
 /**
  * Shows "Please go to chrome webstore to install the desktop sharing extension"
@@ -1289,6 +1195,18 @@ UI.setRemoteControlActiveStatus = function(participantID, isActive) {
  */
 UI.setLocalRemoteControlActiveChanged = function() {
     VideoLayout.setLocalRemoteControlActiveChanged();
+};
+
+/**
+ * Remove media tracks and UI elements so the user no longer sees media in the
+ * UI. The intent is to provide a feeling that the meeting has ended.
+ *
+ * @returns {void}
+ */
+UI.removeLocalMedia = function() {
+    APP.store.dispatch(destroyLocalTracks());
+    VideoLayout.resetLargeVideo();
+    $('#videospace').hide();
 };
 
 // TODO: Export every function separately. For now there is no point of doing

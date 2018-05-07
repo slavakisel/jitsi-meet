@@ -1,207 +1,234 @@
-import React from 'react';
-import { ListView, Text, TouchableHighlight, View } from 'react-native';
+// @flow
+import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
-import { Icon } from '../../base/font-icons';
+import { appNavigate } from '../../app';
+import {
+    getLocalizedDateFormatter,
+    getLocalizedDurationFormatter,
+    translate
+} from '../../base/i18n';
+import { NavigateSectionList } from '../../base/react';
+import { parseURIString } from '../../base/util';
 
-import AbstractRecentList from './AbstractRecentList';
-import styles, { UNDERLAY_COLOR } from './styles';
+/**
+ * The type of the React {@code Component} props of {@link RecentList}
+ */
+type Props = {
+
+    /**
+     * Renders the list disabled.
+     */
+    disabled: boolean,
+
+    /**
+     * The redux store's {@code dispatch} function.
+     */
+    dispatch: Dispatch<*>,
+
+    /**
+     * The translate function.
+     */
+    t: Function,
+
+    /**
+     * The default server URL.
+     */
+    _defaultServerURL: string,
+
+    /**
+     * The recent list from the Redux store.
+     */
+    _recentList: Array<Object>
+};
 
 /**
  * The native container rendering the list of the recently joined rooms.
  *
- * @extends AbstractRecentList
  */
-class RecentList extends AbstractRecentList {
+class RecentList extends Component<Props> {
     /**
      * Initializes a new {@code RecentList} instance.
+     *
+     * @inheritdoc
      */
-    constructor() {
-        super();
+    constructor(props: Props) {
+        super(props);
 
-        // Bind event handlers so they are only bound once per instance.
-        this._getAvatarStyle = this._getAvatarStyle.bind(this);
-        this._onSelect = this._onSelect.bind(this);
-        this._renderConfDuration = this._renderConfDuration.bind(this);
-        this._renderRow = this._renderRow.bind(this);
-        this._renderServerInfo = this._renderServerInfo.bind(this);
+        this._onPress = this._onPress.bind(this);
+        this._toDateString = this._toDateString.bind(this);
+        this._toDurationString = this._toDurationString.bind(this);
+        this._toDisplayableItem = this._toDisplayableItem.bind(this);
+        this._toDisplayableList = this._toDisplayableList.bind(this);
     }
 
     /**
-     * Implements React's {@link Component#render()}. Renders a list of recently
-     * joined rooms.
+     * Implements the React Components's render method.
      *
      * @inheritdoc
-     * @returns {ReactElement}
      */
     render() {
-        if (!this.state.dataSource.getRowCount()) {
-            return null;
-        }
+        const { disabled } = this.props;
 
         return (
-            <View style = { styles.container }>
-                <ListView
-                    dataSource = { this.state.dataSource }
-                    enableEmptySections = { true }
-                    renderRow = { this._renderRow } />
-            </View>
+            <NavigateSectionList
+                disabled = { disabled }
+                onPress = { this._onPress }
+                sections = { this._toDisplayableList() } />
         );
     }
 
+    _onPress: string => Function;
+
     /**
-     * Assembles the style array of the avatar based on if the conference was a
-     * home or remote server conference (based on current app setting).
+     * Handles the list's navigate action.
      *
-     * @param {Object} recentListEntry - The recent list entry being rendered.
+     * @private
+     * @param {string} url - The url string to navigate to.
+     * @returns {void}
+     */
+    _onPress(url) {
+        const { dispatch } = this.props;
+
+        dispatch(appNavigate(url));
+    }
+
+    _toDisplayableItem: Object => Object;
+
+    /**
+     * Creates a displayable list item of a recent list entry.
+     *
+     * @private
+     * @param {Object} item - The recent list entry.
+     * @returns {Object}
+     */
+    _toDisplayableItem(item) {
+        const { _defaultServerURL } = this.props;
+        const location = parseURIString(item.conference);
+        const baseURL = `${location.protocol}//${location.host}`;
+        const serverName = baseURL === _defaultServerURL ? null : location.host;
+
+        return {
+            colorBase: serverName,
+            key: `key-${item.conference}-${item.date}`,
+            lines: [
+                this._toDateString(item.date),
+                this._toDurationString(item.duration),
+                serverName
+            ],
+            title: location.room,
+            url: item.conference
+        };
+    }
+
+    _toDisplayableList: () => Array<Object>;
+
+    /**
+     * Transforms the history list to a displayable list
+     * with sections.
+     *
      * @private
      * @returns {Array<Object>}
      */
-    _getAvatarStyle(recentListEntry) {
-        const avatarStyles = [ styles.avatar ];
+    _toDisplayableList() {
+        const { _recentList, t } = this.props;
+        const { createSection } = NavigateSectionList;
+        const todaySection = createSection(t('recentList.today'), 'today');
+        const yesterdaySection
+            = createSection(t('recentList.yesterday'), 'yesterday');
+        const earlierSection
+            = createSection(t('recentList.earlier'), 'earlier');
+        const today = new Date().toDateString();
+        const yesterdayDate = new Date();
 
-        if (recentListEntry.baseURL !== this.props._homeServer) {
-            avatarStyles.push(
-                this._getColorForServerName(recentListEntry.serverName));
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+        const yesterday = yesterdayDate.toDateString();
+
+        for (const item of _recentList) {
+            const itemDay = new Date(item.date).toDateString();
+            const displayableItem = this._toDisplayableItem(item);
+
+            if (itemDay === today) {
+                todaySection.data.push(displayableItem);
+            } else if (itemDay === yesterday) {
+                yesterdaySection.data.push(displayableItem);
+            } else {
+                earlierSection.data.push(displayableItem);
+            }
         }
 
-        return avatarStyles;
-    }
+        const displayableList = [];
 
-    /**
-     * Returns a style (color) based on the server name, so then the same server
-     * will always be rendered with the same avatar color.
-     *
-     * @param {string} serverName - The recent list entry being rendered.
-     * @private
-     * @returns {Object}
-     */
-    _getColorForServerName(serverName) {
-        let nameHash = 0;
-
-        for (let i = 0; i < serverName.length; i++) {
-            nameHash += serverName.codePointAt(i);
+        if (todaySection.data.length) {
+            todaySection.data.reverse();
+            displayableList.push(todaySection);
+        }
+        if (yesterdaySection.data.length) {
+            yesterdaySection.data.reverse();
+            displayableList.push(yesterdaySection);
+        }
+        if (earlierSection.data.length) {
+            earlierSection.data.reverse();
+            displayableList.push(earlierSection);
         }
 
-        return styles[`avatarRemoteServer${(nameHash % 5) + 1}`];
+        return displayableList;
     }
 
+    _toDateString: number => string;
+
     /**
-     * Renders the conference duration if available.
+     * Generates a date string for the item.
      *
-     * @param {Object} recentListEntry - The recent list entry being rendered.
      * @private
-     * @returns {ReactElement}
+     * @param {number} itemDate - The item's timestamp.
+     * @returns {string}
      */
-    _renderConfDuration({ conferenceDurationString }) {
-        if (conferenceDurationString) {
-            return (
-                <View style = { styles.infoWithIcon } >
-                    <Icon
-                        name = 'timer'
-                        style = { styles.inlineIcon } />
-                    <Text style = { styles.confLength }>
-                        { conferenceDurationString }
-                    </Text>
-                </View>
-            );
+    _toDateString(itemDate) {
+        const date = new Date(itemDate);
+        const m = getLocalizedDateFormatter(itemDate);
+
+        if (date.toDateString() === new Date().toDateString()) {
+            // The date is today, we use fromNow format.
+            return m.fromNow();
+        }
+
+        return m.format('lll');
+    }
+
+    _toDurationString: number => string;
+
+    /**
+     * Generates a duration string for the item.
+     *
+     * @private
+     * @param {number} duration - The item's duration.
+     * @returns {string}
+     */
+    _toDurationString(duration) {
+        if (duration) {
+            return getLocalizedDurationFormatter(duration).humanize();
         }
 
         return null;
-    }
-
-    /**
-     * Renders the server info component based on if the entry was on a
-     * different server or not.
-     *
-     * @param {Object} recentListEntry - The recent list entry being rendered.
-     * @private
-     * @returns {ReactElement}
-     */
-    _renderServerInfo(recentListEntry) {
-        if (recentListEntry.baseURL !== this.props._homeServer) {
-            return (
-                <View style = { styles.infoWithIcon } >
-                    <Icon
-                        name = 'public'
-                        style = { styles.inlineIcon } />
-                    <Text style = { styles.serverName }>
-                        { recentListEntry.serverName }
-                    </Text>
-                </View>
-            );
-        }
-
-        return null;
-    }
-
-    /**
-     * Renders the list of recently joined rooms.
-     *
-     * @param {Object} data - The row data to be rendered.
-     * @private
-     * @returns {ReactElement}
-     */
-    _renderRow(data) {
-        return (
-            <TouchableHighlight
-                onPress = { this._onSelect(data.conference) }
-                underlayColor = { UNDERLAY_COLOR } >
-                <View style = { styles.row } >
-                    <View style = { styles.avatarContainer } >
-                        <View style = { this._getAvatarStyle(data) } >
-                            <Text style = { styles.avatarContent }>
-                                { data.initials }
-                            </Text>
-                        </View>
-                    </View>
-                    <View style = { styles.detailsContainer } >
-                        <Text
-                            numberOfLines = { 1 }
-                            style = { styles.roomName }>
-                            { data.room }
-                        </Text>
-                        <View style = { styles.infoWithIcon } >
-                            <Icon
-                                name = 'event_note'
-                                style = { styles.inlineIcon } />
-                            <Text style = { styles.date }>
-                                { data.dateString }
-                            </Text>
-                        </View>
-                        {
-                            this._renderConfDuration(data)
-                        }
-                        {
-                            this._renderServerInfo(data)
-                        }
-                    </View>
-                </View>
-            </TouchableHighlight>
-        );
     }
 }
 
 /**
- * Maps (parts of) the Redux state to the associated RecentList's props.
+ * Maps redux state to component props.
  *
- * @param {Object} state - The Redux state.
- * @private
+ * @param {Object} state - The redux state.
  * @returns {{
- *     _homeServer: string
+ *     _defaultServerURL: string,
+ *     _recentList: Array
  * }}
  */
-function _mapStateToProps(state) {
+export function _mapStateToProps(state: Object) {
     return {
-        /**
-         * The default server name based on which we determine the render
-         * method.
-         *
-         * @private
-         * @type {string}
-         */
-        _homeServer: state['features/app'].app._getDefaultURL()
+        _defaultServerURL: state['features/app'].app._getDefaultURL(),
+        _recentList: state['features/recent-list']
     };
 }
 
-export default connect(_mapStateToProps)(RecentList);
+export default translate(connect(_mapStateToProps)(RecentList));

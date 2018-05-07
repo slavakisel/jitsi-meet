@@ -1,44 +1,119 @@
 // @flow
 
-import { openDialog } from '../../features/base/dialog';
+import { getInviteURL } from '../base/connection';
+import { inviteVideoRooms } from '../videosipgw';
 
 import {
-    SET_INFO_DIALOG_VISIBILITY,
+    BEGIN_ADD_PEOPLE,
     UPDATE_DIAL_IN_NUMBERS_FAILED,
     UPDATE_DIAL_IN_NUMBERS_SUCCESS
 } from './actionTypes';
-import { InviteDialog } from './components';
+import {
+    getDialInConferenceID,
+    getDialInNumbers,
+    getDigitsOnly,
+    invitePeopleAndChatRooms
+} from './functions';
 
-declare var $: Function;
+const logger = require('jitsi-meet-logger').getLogger(__filename);
 
 /**
- * Opens the Invite Dialog.
+ * Creates a (redux) action to signal that a click/tap has been performed on
+ * {@link InviteButton} and that the execution flow for adding/inviting people
+ * to the current conference/meeting is to begin.
  *
- * @returns {Function}
+ * @returns {{
+ *     type: BEGIN_ADD_PEOPLE
+ * }}
  */
-export function openInviteDialog() {
-    return openDialog(InviteDialog);
+export function beginAddPeople() {
+    return {
+        type: BEGIN_ADD_PEOPLE
+    };
 }
 
 /**
- * Opens the inline conference info dialog.
+ * Invites (i.e. sends invites to) an array of invitees (which may be a
+ * combination of users, rooms, phone numbers, and video rooms).
  *
- * @param {boolean} visible - Whether or not the dialog should be displayed.
- * @param {boolean} autoClose - Whether or not the dialog should automatically
- * close after a set period of time.
- * @returns {{
- *     type: SET_INFO_DIALOG_VISIBILITY,
- *     autoClose: boolean,
- *     visible: boolean
- * }}
+ * @param  {Array<Object>} invitees - The recepients to send invites to.
+ * @returns {Promise<Array<Object>>} A {@code Promise} resolving with an array
+ * of invitees who were not invited (i.e. invites were not sent to them).
  */
-export function setInfoDialogVisibility(
-        visible: boolean,
-        autoClose: boolean = false) {
-    return {
-        type: SET_INFO_DIALOG_VISIBILITY,
-        autoClose,
-        visible
+export function invite(invitees: Array<Object>) {
+    return (
+            dispatch: Dispatch<*>,
+            getState: Function): Promise<Array<Object>> => {
+        let allInvitePromises = [];
+        let invitesLeftToSend = [ ...invitees ];
+
+        const state = getState();
+        const { conference } = state['features/base/conference'];
+        const { inviteServiceUrl } = state['features/base/config'];
+        const inviteUrl = getInviteURL(state);
+        const { jwt } = state['features/base/jwt'];
+
+        // First create all promises for dialing out.
+        if (conference) {
+            const phoneNumbers
+                = invitesLeftToSend.filter(({ type }) => type === 'phone');
+
+            // For each number, dial out. On success, remove the number from
+            // {@link invitesLeftToSend}.
+            const phoneInvitePromises = phoneNumbers.map(item => {
+                const numberToInvite = getDigitsOnly(item.number);
+
+                return conference.dial(numberToInvite)
+                    .then(() => {
+                        invitesLeftToSend
+                            = invitesLeftToSend.filter(
+                                invitee => invitee !== item);
+                    })
+                    .catch(error =>
+                        logger.error('Error inviting phone number:', error));
+            });
+
+            allInvitePromises = allInvitePromises.concat(phoneInvitePromises);
+        }
+
+        const usersAndRooms
+            = invitesLeftToSend.filter(
+                ({ type }) => type === 'user' || type === 'room');
+
+        if (usersAndRooms.length) {
+            // Send a request to invite all the rooms and users. On success,
+            // filter all rooms and users from {@link invitesLeftToSend}.
+            const peopleInvitePromise
+                = invitePeopleAndChatRooms(
+                    inviteServiceUrl,
+                    inviteUrl,
+                    jwt,
+                    usersAndRooms)
+                .then(() => {
+                    invitesLeftToSend
+                        = invitesLeftToSend.filter(
+                            ({ type }) => type !== 'user' && type !== 'room');
+                })
+                .catch(error => logger.error('Error inviting people:', error));
+
+            allInvitePromises.push(peopleInvitePromise);
+        }
+
+        // Sipgw calls are fire and forget. Invite them to the conference, then
+        // immediately remove them from invitesLeftToSend.
+        const vrooms
+            = invitesLeftToSend.filter(({ type }) => type === 'videosipgw');
+
+        conference
+            && vrooms.length > 0
+            && dispatch(inviteVideoRooms(conference, vrooms));
+
+        invitesLeftToSend
+            = invitesLeftToSend.filter(({ type }) => type !== 'videosipgw');
+
+        return (
+            Promise.all(allInvitePromises)
+                .then(() => invitesLeftToSend));
     };
 }
 
@@ -60,12 +135,10 @@ export function updateDialInNumbers() {
         }
 
         const { room } = state['features/base/conference'];
-        const conferenceIDURL
-            = `${dialInConfCodeUrl}?conference=${room}@${mucURL}`;
 
         Promise.all([
-            $.getJSON(dialInNumbersUrl),
-            $.getJSON(conferenceIDURL)
+            getDialInNumbers(dialInNumbersUrl),
+            getDialInConferenceID(dialInConfCodeUrl, room, mucURL)
         ])
             .then(([ dialInNumbers, { conference, id, message } ]) => {
                 if (!conference || !id) {

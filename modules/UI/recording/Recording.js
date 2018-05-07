@@ -1,4 +1,4 @@
-/* global APP, $, config, interfaceConfig */
+/* global APP, config, interfaceConfig */
 /*
  * Copyright @ 2015 Atlassian Pty Ltd
  *
@@ -20,6 +20,7 @@ import UIEvents from '../../../service/UI/UIEvents';
 import UIUtil from '../util/UIUtil';
 import VideoLayout from '../videolayout/VideoLayout';
 
+import { openDialog } from '../../../react/features/base/dialog';
 import {
     JitsiRecordingStatus
 } from '../../../react/features/base/lib-jitsi-meet';
@@ -31,7 +32,10 @@ import {
 import { setToolboxEnabled } from '../../../react/features/toolbox';
 import { setNotificationsEnabled } from '../../../react/features/notifications';
 import {
+    StartLiveStreamDialog,
+    StopLiveStreamDialog,
     hideRecordingLabel,
+    setRecordingType,
     updateRecordingState
 } from '../../../react/features/recording';
 
@@ -102,91 +106,14 @@ function _isRecordingButtonEnabled() {
  * @returns {Promise}
  */
 function _requestLiveStreamId() {
-    const cancelButton
-        = APP.translation.generateTranslationHTML('dialog.Cancel');
-    const backButton = APP.translation.generateTranslationHTML('dialog.Back');
-    const startStreamingButton
-        = APP.translation.generateTranslationHTML('dialog.startLiveStreaming');
-    const streamIdRequired
-        = APP.translation.generateTranslationHTML(
-            'liveStreaming.streamIdRequired');
-    const streamIdHelp
-        = APP.translation.generateTranslationHTML(
-            'liveStreaming.streamIdHelp');
-
-    return new Promise((resolve, reject) => {
-        dialog = APP.UI.messageHandler.openDialogWithStates({
-            state0: {
-                titleKey: 'dialog.liveStreaming',
-                html:
-                    `<input  class="input-control"
-                    name="streamId" type="text"
-                    data-i18n="[placeholder]dialog.streamKey"
-                    autofocus><div style="text-align: right">
-                    <a class="helper-link" target="_new"
-                    href="${interfaceConfig.LIVE_STREAMING_HELP_LINK}">${
-    streamIdHelp
-}</a></div>`,
-                persistent: false,
-                buttons: [
-                    { title: cancelButton,
-                        value: false },
-                    { title: startStreamingButton,
-                        value: true }
-                ],
-                focus: ':input:first',
-                defaultButton: 1,
-                submit(e, v, m, f) { // eslint-disable-line max-params
-                    e.preventDefault();
-
-                    if (v) {
-                        if (f.streamId && f.streamId.length > 0) {
-                            resolve(UIUtil.escapeHtml(f.streamId));
-                            dialog.close();
-
-                            return;
-                        }
-                        dialog.goToState('state1');
-
-                        return false;
-
-                    }
-                    reject(APP.UI.messageHandler.CANCEL);
-                    dialog.close();
-
-                    return false;
-
-                }
-            },
-
-            state1: {
-                titleKey: 'dialog.liveStreaming',
-                html: streamIdRequired,
-                persistent: false,
-                buttons: [
-                    { title: cancelButton,
-                        value: false },
-                    { title: backButton,
-                        value: true }
-                ],
-                focus: ':input:first',
-                defaultButton: 1,
-                submit(e, v) {
-                    e.preventDefault();
-                    if (v === 0) {
-                        reject(APP.UI.messageHandler.CANCEL);
-                        dialog.close();
-                    } else {
-                        dialog.goToState('state0');
-                    }
-                }
-            }
-        }, {
-            close() {
-                dialog = null;
-            }
-        });
-    });
+    return new Promise((resolve, reject) =>
+        APP.store.dispatch(openDialog(StartLiveStreamDialog, {
+            onCancel: reject,
+            onSubmit: (streamId, broadcastId) => resolve({
+                broadcastId,
+                streamId
+            })
+        })));
 }
 
 /**
@@ -232,25 +159,20 @@ function _requestRecordingToken() {
  * @private
  */
 function _showStopRecordingPrompt(recordingType) {
-    let title;
-    let message;
-    let buttonKey;
-
     if (recordingType === 'jibri') {
-        title = 'dialog.liveStreaming';
-        message = 'dialog.stopStreamingWarning';
-        buttonKey = 'dialog.stopLiveStreaming';
-    } else {
-        title = 'dialog.recording';
-        message = 'dialog.stopRecordingWarning';
-        buttonKey = 'dialog.stopRecording';
+        return new Promise((resolve, reject) => {
+            APP.store.dispatch(openDialog(StopLiveStreamDialog, {
+                onCancel: reject,
+                onSubmit: resolve
+            }));
+        });
     }
 
     return new Promise((resolve, reject) => {
         dialog = APP.UI.messageHandler.openTwoButtonDialog({
-            titleKey: title,
-            msgKey: message,
-            leftButtonKey: buttonKey,
+            titleKey: 'dialog.recording',
+            msgKey: 'dialog.stopRecordingWarning',
+            leftButtonKey: 'dialog.stopRecording',
             submitFunction: (e, v) => (v ? resolve : reject)(),
             closeFunction: () => {
                 dialog = null;
@@ -273,8 +195,7 @@ function isStartingStatus(status) {
 
 /**
  * Manages the recording user interface and user experience.
- * @type {{init, initRecordingButton, showRecordingButton, updateRecordingState,
- * updateRecordingUI, checkAutoRecord}}
+ * @type {{init, updateRecordingState, updateRecordingUI, checkAutoRecord}}
  */
 const Recording = {
     /**
@@ -283,6 +204,8 @@ const Recording = {
     init(eventEmitter, recordingType) {
         this.eventEmitter = eventEmitter;
         this.recordingType = recordingType;
+
+        APP.store.dispatch(setRecordingType(recordingType));
 
         this.updateRecordingState(APP.conference.getRecordingState());
 
@@ -294,12 +217,8 @@ const Recording = {
             Object.assign(this, RECORDING_TRANSLATION_KEYS);
         }
 
-        // XXX Due to the React-ification of Toolbox, the HTMLElement with id
-        // toolbar_button_record may not exist yet.
-        $(document).on(
-            'click',
-            '#toolbar_button_record',
-            ev => this._onToolbarButtonClick(ev));
+        this.eventEmitter.on(UIEvents.TOGGLE_RECORDING,
+            () => this._onToolbarButtonClick());
 
         // If I am a recorder then I publish my recorder custom role to notify
         // everyone.
@@ -316,28 +235,6 @@ const Recording = {
             APP.store.dispatch(setNotificationsEnabled(false));
             APP.UI.messageHandler.enablePopups(false);
         }
-    },
-
-    /**
-     * Initialise the recording button.
-     */
-    initRecordingButton() {
-        const selector = $('#toolbar_button_record');
-
-        selector.addClass(this.baseClass);
-        selector.attr('data-i18n', `[content]${this.recordingButtonTooltip}`);
-        APP.translation.translateElement(selector);
-    },
-
-    /**
-     * Shows or hides the 'recording' button.
-     * @param show {true} to show the recording button, {false} to hide it
-     */
-    showRecordingButton(show) {
-        const shouldShow = show && _isRecordingButtonEnabled();
-        const id = 'toolbar_button_record';
-
-        UIUtil.setVisible(id, shouldShow);
     },
 
     /**
@@ -363,12 +260,12 @@ const Recording = {
      * @param recordingState gives us the current recording state
      */
     updateRecordingUI(recordingState) {
-
         const oldState = this.currentState;
 
         this.currentState = recordingState;
 
         let labelDisplayConfiguration;
+        let isRecording = false;
 
         switch (recordingState) {
         case JitsiRecordingStatus.ON:
@@ -379,7 +276,7 @@ const Recording = {
                 showSpinner: recordingState === JitsiRecordingStatus.RETRYING
             };
 
-            this._setToolbarButtonToggled(true);
+            isRecording = true;
 
             break;
         }
@@ -404,8 +301,6 @@ const Recording = {
                     : this.recordingOffKey
             };
 
-            this._setToolbarButtonToggled(false);
-
             setTimeout(() => {
                 APP.store.dispatch(hideRecordingLabel());
             }, 5000);
@@ -419,8 +314,6 @@ const Recording = {
                 key: this.recordingPendingKey
             };
 
-            this._setToolbarButtonToggled(false);
-
             break;
         }
 
@@ -429,8 +322,6 @@ const Recording = {
                 centered: true,
                 key: this.recordingErrorKey
             };
-
-            this._setToolbarButtonToggled(false);
 
             break;
         }
@@ -444,6 +335,7 @@ const Recording = {
         }
 
         APP.store.dispatch(updateRecordingState({
+            isRecording,
             labelDisplayConfiguration,
             recordingState
         }));
@@ -498,10 +390,13 @@ const Recording = {
         case JitsiRecordingStatus.OFF: {
             if (this.recordingType === 'jibri') {
                 _requestLiveStreamId()
-                .then(streamId => {
+                .then(({ broadcastId, streamId }) => {
                     this.eventEmitter.emit(
                         UIEvents.RECORDING_TOGGLED,
-                        { streamId });
+                        {
+                            broadcastId,
+                            streamId
+                        });
 
                     // The confirm button on the start recording dialog was
                     // clicked
@@ -561,16 +456,6 @@ const Recording = {
             });
         }
         }
-    },
-
-    /**
-     * Sets the toggled state of the recording toolbar button.
-     *
-     * @param {boolean} isToggled indicates if the button should be toggled
-     * or not
-     */
-    _setToolbarButtonToggled(isToggled) {
-        $('#toolbar_button_record').toggleClass('toggled', isToggled);
     }
 };
 

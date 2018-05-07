@@ -1,11 +1,14 @@
-import { Platform } from '../../base/react';
 import { ColorPalette } from '../../base/styles';
+
+/**
+ * Size for the Avatar.
+ */
+export const AVATAR_SIZE = 50;
 
 /**
  * The base style of {@link Filmstrip} shared between narrow and wide versions.
  */
 const filmstrip = {
-    flexDirection: 'column',
     flexGrow: 0
 };
 
@@ -13,20 +16,6 @@ const filmstrip = {
  * The styles of the feature filmstrip common to both Web and native.
  */
 export default {
-    /**
-     * Avatar style.
-     */
-    avatar: {
-        alignSelf: 'center',
-
-        // XXX Workaround for Android: for images < 80 the border radius doesn't
-        // work properly, but applying a radius twice as big does the trick.
-        borderRadius: Platform.OS === 'android' ? 100 : 25,
-        flex: 0,
-        height: 50,
-        width: 50
-    },
-
     /**
      * Dominant speaker indicator style.
      */
@@ -53,7 +42,8 @@ export default {
      */
     filmstripNarrow: {
         ...filmstrip,
-        alignItems: 'flex-end',
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
         height: 90
     },
 
@@ -64,9 +54,21 @@ export default {
     filmstripWide: {
         ...filmstrip,
         bottom: 0,
+        flexDirection: 'column',
         left: 0,
         position: 'absolute',
         top: 0
+    },
+
+    /**
+     * Container of the {@link LocalThumbnail}.
+     */
+    localThumbnail: {
+        alignContent: 'stretch',
+        alignSelf: 'stretch',
+        aspectRatio: 1,
+        flexShrink: 0,
+        flexDirection: 'row'
     },
 
     /**
@@ -78,6 +80,13 @@ export default {
         color: ColorPalette.white,
         position: 'absolute',
         right: 4
+    },
+
+    /**
+     * The style of the scrollview containing the remote thumbnails.
+     */
+    scrollView: {
+        flexGrow: 0
     },
 
     /**

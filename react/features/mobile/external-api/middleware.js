@@ -8,11 +8,15 @@ import {
     CONFERENCE_LEFT,
     CONFERENCE_WILL_JOIN,
     CONFERENCE_WILL_LEAVE,
-    JITSI_CONFERENCE_URL_KEY
+    JITSI_CONFERENCE_URL_KEY,
+    SET_ROOM,
+    isRoomValid
 } from '../../base/conference';
 import { LOAD_CONFIG_ERROR } from '../../base/config';
+import { CONNECTION_FAILED } from '../../base/connection';
 import { MiddlewareRegistry } from '../../base/redux';
 import { toURLString } from '../../base/util';
+import { ENTER_PICTURE_IN_PICTURE } from '../picture-in-picture';
 
 /**
  * Middleware that captures Redux actions and uses the ExternalAPI module to
@@ -53,6 +57,15 @@ MiddlewareRegistry.register(store => next => action => {
         _sendConferenceEvent(store, action);
         break;
 
+    case CONNECTION_FAILED:
+        !action.error.recoverable
+            && _sendConferenceFailedOnConnectionError(store, action);
+        break;
+
+    case ENTER_PICTURE_IN_PICTURE:
+        _sendEvent(store, _getSymbolDescription(action.type), /* data */ {});
+        break;
+
     case LOAD_CONFIG_ERROR: {
         const { error, locationURL, type } = action;
 
@@ -62,6 +75,10 @@ MiddlewareRegistry.register(store => next => action => {
         });
         break;
     }
+
+    case SET_ROOM:
+        _maybeTriggerEarlyConferenceWillJoin(store, action);
+        break;
     }
 
     return result;
@@ -111,6 +128,32 @@ function _getSymbolDescription(symbol: Symbol) {
 }
 
 /**
+ * If {@link SET_ROOM} action happens for a valid conference room this method
+ * will emit an early {@link CONFERENCE_WILL_JOIN} event to let the external API
+ * know that a conference is being joined. Before that happens a connection must
+ * be created and only then base/conference feature would emit
+ * {@link CONFERENCE_WILL_JOIN}. That is fine for the Jitsi Meet app, because
+ * that's the a conference instance gets created, but it's too late for
+ * the external API to learn that. The latter {@link CONFERENCE_WILL_JOIN} is
+ * swallowed in {@link _swallowEvent}.
+ *
+ * @param {Store} store - The redux store.
+ * @param {Action} action - The redux action.
+ * @returns {void}
+ */
+function _maybeTriggerEarlyConferenceWillJoin(store, action) {
+    const { locationURL } = store.getState()['features/base/connection'];
+    const { room } = action;
+
+    isRoomValid(room) && locationURL && _sendEvent(
+        store,
+        _getSymbolDescription(CONFERENCE_WILL_JOIN),
+        /* data */ {
+            url: toURLString(locationURL)
+        });
+}
+
+/**
  * Sends an event to the native counterpart of the External API for a specific
  * conference-related redux action.
  *
@@ -120,11 +163,13 @@ function _getSymbolDescription(symbol: Symbol) {
  */
 function _sendConferenceEvent(
         store: Object,
-        { conference, type, ...data }: {
+        action: {
             conference: Object,
             type: Symbol,
             url: ?string
         }) {
+    const { conference, type, ...data } = action;
+
     // For these (redux) actions, conference identifies a JitsiConference
     // instance. The external API cannot transport such an object so we have to
     // transport an "equivalent".
@@ -132,7 +177,30 @@ function _sendConferenceEvent(
         data.url = toURLString(conference[JITSI_CONFERENCE_URL_KEY]);
     }
 
-    _sendEvent(store, _getSymbolDescription(type), data);
+    _swallowEvent(store, action, data)
+        || _sendEvent(store, _getSymbolDescription(type), data);
+}
+
+/**
+ * Sends {@link CONFERENCE_FAILED} event when the {@link CONNECTION_FAILED}
+ * occurs. Otherwise the external API will not emit such event, because at this
+ * point conference has not been created yet and the base/conference feature
+ * will not emit it.
+ *
+ * @param {Store} store - The redux store.
+ * @param {Action} action - The redux action.
+ * @returns {void}
+ */
+function _sendConferenceFailedOnConnectionError(store, action) {
+    const { locationURL } = store.getState()['features/base/connection'];
+
+    locationURL && _sendEvent(
+        store,
+        _getSymbolDescription(CONFERENCE_FAILED),
+        /* data */ {
+            url: toURLString(locationURL),
+            error: action.error.name
+        });
 }
 
 /**
@@ -151,9 +219,9 @@ function _sendEvent(
         { getState }: { getState: Function },
         name: string,
         data: Object) {
-    // The JavaScript App needs to provide uniquely identifying information
-    // to the native ExternalAPI module so that the latter may match the former
-    // to the native JitsiMeetView which hosts it.
+    // The JavaScript App needs to provide uniquely identifying information to
+    // the native ExternalAPI module so that the latter may match the former to
+    // the native JitsiMeetView which hosts it.
     const { app } = getState()['features/app'];
 
     if (app) {
@@ -162,5 +230,75 @@ function _sendEvent(
         if (externalAPIScope) {
             NativeModules.ExternalAPI.sendEvent(name, data, externalAPIScope);
         }
+    }
+}
+
+/**
+ * Determines whether to not send a {@code CONFERENCE_LEFT} event to the native
+ * counterpart of the External API.
+ *
+ * @param {Object} store - The redux store.
+ * @param {Action} action - The redux action which is causing the sending of the
+ * event.
+ * @param {Object} data - The details/specifics of the event to send determined
+ * by/associated with the specified {@code action}.
+ * @returns {boolean} If the specified event is to not be sent, {@code true};
+ * otherwise, {@code false}.
+ */
+function _swallowConferenceLeft({ getState }, action, { url }) {
+    // XXX Internally, we work with JitsiConference instances. Externally
+    // though, we deal with URL strings. The relation between the two is many to
+    // one so it's technically and practically possible (by externally loading
+    // the same URL string multiple times) to try to send CONFERENCE_LEFT
+    // externally for a URL string which identifies a JitsiConference that the
+    // app is internally legitimately working with.
+
+    if (url) {
+        const stateFeaturesBaseConference
+            = getState()['features/base/conference'];
+
+        // eslint-disable-next-line guard-for-in
+        for (const p in stateFeaturesBaseConference) {
+            const v = stateFeaturesBaseConference[p];
+
+            // Does the value of the base/conference's property look like a
+            // JitsiConference?
+            if (v && typeof v === 'object') {
+                const vURL = v[JITSI_CONFERENCE_URL_KEY];
+
+                if (vURL && vURL.toString() === url) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Determines whether to not send a specific event to the native counterpart of
+ * the External API.
+ *
+ * @param {Object} store - The redux store.
+ * @param {Action} action - The redux action which is causing the sending of the
+ * event.
+ * @param {Object} data - The details/specifics of the event to send determined
+ * by/associated with the specified {@code action}.
+ * @returns {boolean} If the specified event is to not be sent, {@code true};
+ * otherwise, {@code false}.
+ */
+function _swallowEvent(store, action, data) {
+    switch (action.type) {
+    case CONFERENCE_LEFT:
+        return _swallowConferenceLeft(store, action, data);
+    case CONFERENCE_WILL_JOIN:
+        // CONFERENCE_WILL_JOIN is dispatched to the external API on SET_ROOM,
+        // before the connection is created, so we need to swallow the original
+        // one emitted by base/conference.
+        return true;
+
+    default:
+        return false;
     }
 }

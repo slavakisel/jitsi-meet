@@ -1,15 +1,83 @@
-/* @flow */
+// @flow
+
+import { parseURLParams } from '../config';
+import { toState } from '../redux';
 
 /**
- * Retreives the current profile settings from redux store. The profile
- * is persisted to localStorage so it's a good candidate to store settings
- * in it.
+ * Returns the effective value of a configuration/preference/setting by applying
+ * a precedence among the values specified by JWT, URL, profile, and config.
  *
- * @param {Object} state - The Redux state.
- * @returns {Object}
+ * @param {Object|Function} stateful - The redux state object or
+ * {@code getState} function.
+ * @param {string} propertyName - The name of the
+ * configuration/preference/setting (property) to retrieve.
+ * @param {{
+ *     config: boolean,
+ *     jwt: boolean,
+ *     profile: boolean,
+ *     urlParams: boolean
+ * }} [sources] - A set/structure of {@code boolean} flags indicating the
+ * configuration/preference/setting sources to consider/retrieve values from.
+ * @returns {any}
  */
-export function getProfile(state: Object) {
-    const profileStateSlice = state['features/base/profile'];
+export function getPropertyValue(
+        stateful: Object | Function,
+        propertyName: string,
+        sources?: Object
+) {
+    // Default values don't play nicely with partial objects and we want to make
+    // the function easy to use without exhaustively defining all flags:
+    sources = { // eslint-disable-line no-param-reassign
+        // Defaults:
+        config: true,
+        jwt: true,
+        profile: true,
+        urlParams: true,
 
-    return profileStateSlice ? profileStateSlice.profile || {} : {};
+        ...sources
+    };
+
+    // Precedence: jwt -> urlParams -> profile -> config.
+
+    const state = toState(stateful);
+
+    // jwt
+    if (sources.jwt) {
+        const value = state['features/base/jwt'][propertyName];
+
+        if (typeof value !== 'undefined') {
+            return value[propertyName];
+        }
+    }
+
+    // urlParams
+    if (sources.urlParams) {
+        const urlParams
+            = parseURLParams(state['features/base/connection'].locationURL);
+        const value = urlParams[`config.${propertyName}`];
+
+        if (typeof value !== 'undefined') {
+            return value;
+        }
+    }
+
+    // profile
+    if (sources.profile) {
+        const value = state['features/base/profile'][propertyName];
+
+        if (typeof value !== 'undefined') {
+            return value;
+        }
+    }
+
+    // config
+    if (sources.config) {
+        const value = state['features/base/config'][propertyName];
+
+        if (typeof value !== 'undefined') {
+            return value;
+        }
+    }
+
+    return undefined;
 }

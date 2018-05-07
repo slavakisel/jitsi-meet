@@ -3,7 +3,7 @@
 import React, { Component } from 'react';
 
 // eslint-disable-next-line react-native/split-platform-components
-import { BackAndroid, BackHandler, View } from 'react-native';
+import { BackAndroid, BackHandler, StatusBar, View } from 'react-native';
 import { connect as reactReduxConnect } from 'react-redux';
 
 import { appNavigate } from '../../app';
@@ -11,7 +11,9 @@ import { connect, disconnect } from '../../base/connection';
 import { DialogContainer } from '../../base/dialog';
 import { CalleeInfoContainer } from '../../base/jwt';
 import { Container, LoadingIndicator, TintedView } from '../../base/react';
+import { TestConnectionInfo } from '../../base/testing';
 import { createDesiredLocalTracks } from '../../base/tracks';
+import { ConferenceNotification } from '../../calendar-sync';
 import { Filmstrip } from '../../filmstrip';
 import { LargeVideo } from '../../large-video';
 import { setToolboxVisible, Toolbox } from '../../toolbox';
@@ -65,6 +67,14 @@ type Props = {
      * undesired, {@code true} is always returned.
      */
     _onHardwareBackPress: Function,
+
+    /**
+     * The indicator which determines whether the UI is reduced (to accommodate
+     * smaller display areas).
+     *
+     * @private
+     */
+    _reducedUI: boolean,
 
     /**
      * The handler which dispatches the (redux) action setToolboxVisible to
@@ -178,22 +188,22 @@ class Conference extends Component<Props> {
      */
     render() {
         return (
-            <Container
-                accessibilityLabel = 'Conference'
-                accessible = { false }
-                onClick = { this._onClick }
-                style = { styles.conference }
-                touchFeedback = { false }>
+            <Container style = { styles.conference }>
+                <StatusBar
+                    barStyle = 'light-content'
+                    hidden = { true }
+                    translucent = { true } />
 
                 {/*
                   * The LargeVideo is the lowermost stacking layer.
                   */}
-                <LargeVideo />
+                <LargeVideo onPress = { this._onClick } />
 
                 {/*
                   * If there is a ringing call, show the callee's info.
-                  */}
-                <CalleeInfoContainer />
+                  */
+                    this.props._reducedUI || <CalleeInfoContainer />
+                }
 
                 {/*
                   * The activity/loading indicator goes above everything, except
@@ -205,7 +215,9 @@ class Conference extends Component<Props> {
                         </TintedView>
                 }
 
-                <View style = { styles.toolboxAndFilmstripContainer } >
+                <View
+                    pointerEvents = 'box-none'
+                    style = { styles.toolboxAndFilmstripContainer }>
                     {/*
                       * The Toolbox is in a stacking layer bellow the Filmstrip.
                       */}
@@ -220,11 +232,17 @@ class Conference extends Component<Props> {
                       */}
                     <Filmstrip />
                 </View>
+                <TestConnectionInfo />
+
+                {
+                    this._renderConferenceNotification()
+                }
 
                 {/*
                   * The dialogs are in the topmost stacking layers.
-                  */}
-                <DialogContainer />
+                  */
+                    this.props._reducedUI || <DialogContainer />
+                }
             </Container>
         );
     }
@@ -272,6 +290,21 @@ class Conference extends Component<Props> {
      */
     _onHardwareBackPress() {
         return this._backHandler && this.props._onHardwareBackPress();
+    }
+
+    /**
+     * Renders the conference notification badge if the feature is enabled.
+     *
+     * Note: If the calendar feature is disabled on a platform, then we don't
+     * have its components exported so an undefined check is necessary.
+     *
+     * @private
+     * @returns {React$Node}
+     */
+    _renderConferenceNotification() {
+        return ConferenceNotification
+            ? <ConferenceNotification />
+            : undefined;
     }
 
     /**
@@ -355,18 +388,20 @@ function _mapDispatchToProps(dispatch) {
 }
 
 /**
- * Maps (parts of) the Redux state to the associated Conference's props.
+ * Maps (parts of) the redux state to the associated {@code Conference}'s props.
  *
- * @param {Object} state - The Redux state.
+ * @param {Object} state - The redux state.
  * @private
  * @returns {{
  *     _connecting: boolean,
+ *     _reducedUI: boolean,
  *     _toolboxVisible: boolean
  * }}
  */
 function _mapStateToProps(state) {
     const { connecting, connection } = state['features/base/connection'];
     const { conference, joining, leaving } = state['features/base/conference'];
+    const { reducedUI } = state['features/base/responsive-ui'];
 
     // XXX There is a window of time between the successful establishment of the
     // XMPP connection and the subsequent commencement of joining the MUC during
@@ -391,6 +426,15 @@ function _mapStateToProps(state) {
          * @type {boolean}
          */
         _connecting: Boolean(connecting_),
+
+        /**
+         * The indicator which determines whether the UI is reduced (to
+         * accommodate smaller display areas).
+         *
+         * @private
+         * @type {boolean}
+         */
+        _reducedUI: reducedUI,
 
         /**
          * The indicator which determines whether the Toolbox is visible.

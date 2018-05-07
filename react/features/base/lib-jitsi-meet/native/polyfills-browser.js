@@ -4,7 +4,13 @@ import 'url-polyfill'; // Polyfill for URL constructor
 
 import { Platform } from '../../react';
 
-import Storage from './Storage';
+// XXX The library lib-jitsi-meet utilizes window.localStorage at the time of
+// this writing and, consequently, the browser-related polyfills implemented
+// here by the feature base/lib-jitsi-meet for the purposes of the library
+// lib-jitsi-meet are incomplete without the Web Storage API! Should the library
+// lib-jitsi-meet (and its dependencies) stop utilizing window.localStorage,
+// the following import may be removed:
+import '../../storage';
 
 /**
  * Gets the first common prototype of two specified Objects (treating the
@@ -93,6 +99,12 @@ function _visitNode(node, callback) {
 (global => {
     const { DOMParser } = require('xmldom');
 
+    // DOMParser
+    //
+    // Required by:
+    // - lib-jitsi-meet requires this if using WebSockets
+    global.DOMParser = DOMParser;
+
     // addEventListener
     //
     // Required by:
@@ -143,6 +155,38 @@ function _visitNode(node, callback) {
             document.cookie = '';
         }
 
+        // document.implementation
+        //
+        // Required by:
+        // - jQuery
+        if (typeof document.implementation === 'undefined') {
+            document.implementation = {};
+        }
+
+        // document.implementation.createHTMLDocument
+        //
+        // Required by:
+        // - jQuery
+        if (typeof document.implementation.createHTMLDocument === 'undefined') {
+            document.implementation.createHTMLDocument = function(title = '') {
+                const htmlDocument
+                    = new DOMParser().parseFromString(
+                        `<html>
+                            <head><title>${title}</title></head>
+                            <body></body>
+                        </html>`,
+                        'text/xml');
+
+                Object.defineProperty(htmlDocument, 'body', {
+                    get() {
+                        return htmlDocument.getElementsByTagName('body')[0];
+                    }
+                });
+
+                return htmlDocument;
+            };
+        }
+
         // Element.querySelector
         //
         // Required by:
@@ -154,6 +198,18 @@ function _visitNode(node, callback) {
             if (typeof elementPrototype.querySelector === 'undefined') {
                 elementPrototype.querySelector = function(selectors) {
                     return _querySelector(this, selectors);
+                };
+            }
+
+            // Element.remove
+            //
+            // Required by:
+            // - lib-jitsi-meet ChatRoom#onPresence parsing
+            if (typeof elementPrototype.remove === 'undefined') {
+                elementPrototype.remove = function() {
+                    if (this.parentNode !== null) {
+                        this.parentNode.removeChild(this);
+                    }
                 };
             }
 
@@ -190,6 +246,31 @@ function _visitNode(node, callback) {
                         while (child = documentElement.firstChild) {
                             this.appendChild(child);
                         }
+                    }
+                });
+            }
+
+            // Element.children
+            //
+            // Required by:
+            // - lib-jitsi-meet ChatRoom#onPresence parsing
+            if (!elementPrototype.hasOwnProperty('children')) {
+                Object.defineProperty(elementPrototype, 'children', {
+                    get() {
+                        const nodes = this.childNodes;
+                        const children = [];
+                        let i = 0;
+                        let node = nodes[i];
+
+                        while (node) {
+                            if (node.nodeType === 1) {
+                                children.push(node);
+                            }
+                            i += 1;
+                            node = nodes[i];
+                        }
+
+                        return children;
                     }
                 });
             }
@@ -271,11 +352,6 @@ function _visitNode(node, callback) {
         global.document = document;
     }
 
-    // localStorage
-    if (typeof global.localStorage === 'undefined') {
-        global.localStorage = new Storage('@jitsi-meet/');
-    }
-
     // location
     if (typeof global.location === 'undefined') {
         global.location = {
@@ -332,15 +408,6 @@ function _visitNode(node, callback) {
         navigator.userAgent = userAgent;
     }
 
-    // sessionStorage
-    //
-    // Required by:
-    // - herment
-    // - Strophe
-    if (typeof global.sessionStorage === 'undefined') {
-        global.sessionStorage = new Storage();
-    }
-
     // WebRTC
     require('./polyfills-webrtc');
     require('react-native-callstats/csio-polyfill');
@@ -380,6 +447,6 @@ function _visitNode(node, callback) {
     global.clearTimeout = BackgroundTimer.clearTimeout.bind(BackgroundTimer);
     global.clearInterval = BackgroundTimer.clearInterval.bind(BackgroundTimer);
     global.setInterval = BackgroundTimer.setInterval.bind(BackgroundTimer);
-    global.setTimeout = BackgroundTimer.setTimeout.bind(BackgroundTimer);
+    global.setTimeout = (fn, ms = 0) => BackgroundTimer.setTimeout(fn, ms);
 
 })(global || window || this); // eslint-disable-line no-invalid-this

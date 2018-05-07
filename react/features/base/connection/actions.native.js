@@ -3,7 +3,7 @@
 import _ from 'lodash';
 import type { Dispatch } from 'redux';
 
-import { conferenceWillLeave } from '../conference';
+import { conferenceLeft, conferenceWillLeave } from '../conference';
 import JitsiMeetJS, { JitsiConnectionEvents } from '../lib-jitsi-meet';
 import { parseStandardURIString } from '../util';
 
@@ -14,6 +14,53 @@ import {
     CONNECTION_WILL_CONNECT,
     SET_LOCATION_URL
 } from './actionTypes';
+
+/**
+ * The error structure passed to the {@link connectionFailed} action.
+ *
+ * Note there was an intention to make the error resemble an Error instance (to
+ * the extent that jitsi-meet needs it).
+ */
+export type ConnectionFailedError = {
+
+    /**
+     * The invalid credentials that were used to authenticate and the
+     * authentication failed.
+     */
+    credentials?: {
+
+        /**
+         * The XMPP user's ID.
+         */
+        jid: string,
+
+        /**
+         * The XMPP user's password.
+         */
+        password: string
+    },
+
+    /**
+     * The details about the connection failed event.
+     */
+    details?: string,
+
+    /**
+     * Error message.
+     */
+    message?: string,
+
+    /**
+     * One of {@link JitsiConnectionError} constants (defined in
+     * lib-jitsi-meet).
+     */
+    name: string,
+
+    /**
+     * Indicates whether this event is recoverable or not.
+     */
+    recoverable?: boolean
+}
 
 /**
  * Opens new connection.
@@ -89,10 +136,18 @@ export function connect(id: ?string, password: ?string) {
          * @private
          * @returns {void}
          */
-        function _onConnectionFailed(err, msg, credentials) {
+        function _onConnectionFailed(
+                err: string, msg: string, credentials: Object) {
             unsubscribe();
             console.error('CONNECTION FAILED:', err, msg);
-            dispatch(connectionFailed(connection, err, msg, credentials));
+            dispatch(
+                connectionFailed(
+                    connection, {
+                        credentials,
+                        name: err,
+                        message: msg
+                    }
+                ));
         }
 
         /**
@@ -167,46 +222,33 @@ export function connectionEstablished(connection: Object) {
     };
 }
 
-/* eslint-disable max-params */
-
 /**
  * Create an action for when the signaling connection could not be created.
  *
  * @param {JitsiConnection} connection - The JitsiConnection which failed.
- * @param {string} error - Error.
- * @param {string} [message] - Error message.
- * @param {Object} [credentials] - The invalid credentials that failed
- * the authentication.
+ * @param {ConnectionFailedError} error - Error.
  * @public
  * @returns {{
  *     type: CONNECTION_FAILED,
  *     connection: JitsiConnection,
- *     error: Object
+ *     error: ConnectionFailedError
  * }}
  */
 export function connectionFailed(
         connection: Object,
-        error: string,
-        message: ?string,
-        credentials: ?Object) {
+        error: ConnectionFailedError) {
+    const { credentials } = error;
+
+    if (credentials && !Object.keys(credentials).length) {
+        error.credentials = undefined;
+    }
+
     return {
         type: CONNECTION_FAILED,
         connection,
-
-        // Make the error resemble an Error instance (to the extent that
-        // jitsi-meet needs it).
-        error: {
-            credentials:
-                credentials && Object.keys(credentials).length
-                    ? credentials
-                    : undefined,
-            message,
-            name: error
-        }
+        error
     };
 }
-
-/* eslint-enable max-params */
 
 /**
  * Constructs options to be passed to the constructor of {@code JitsiConnection}
@@ -278,7 +320,16 @@ export function disconnect() {
             // intention to leave the conference.
             dispatch(conferenceWillLeave(conference_));
 
-            promise = conference_.leave();
+            promise
+                = conference_.leave()
+                    .catch(() => {
+                        // The library lib-jitsi-meet failed to make the
+                        // JitsiConference leave. Which may be because
+                        // JitsiConference thinks it has already left.
+                        // Regardless of the failure reason, continue in
+                        // jitsi-meet as if the leave has succeeded.
+                        dispatch(conferenceLeft(conference_));
+                    });
         } else {
             promise = Promise.resolve();
         }

@@ -1,6 +1,19 @@
 // @flow
 
 /**
+ * The app linking scheme.
+ * TODO: This should be read from the manifest files later.
+ */
+export const APP_LINK_SCHEME = 'org.jitsi.meet:';
+
+/**
+ * A list of characters to be excluded/removed from the room component/segment
+ * of a conference/meeting URI/URL. The list is based on RFC 3986 and the jxmpp
+ * library utilized by jicofo.
+ */
+const _ROOM_EXCLUDE_PATTERN = '[\\:\\?#\\[\\]@!$&\'()*+,;=></"]';
+
+/**
  * The {@link RegExp} pattern of the authority of a URI.
  *
  * @private
@@ -19,10 +32,28 @@ const _URI_PATH_PATTERN = '([^?#]*)';
 /**
  * The {@link RegExp} pattern of the protocol of a URI.
  *
- * @private
+ * FIXME: The URL class exposed by JavaScript will not include the colon in
+ * the protocol field. Also in other places (at the time of this writing:
+ * the DeepLinkingMobilePage.js) the APP_LINK_SCHEME does not include
+ * the double dots, so things are inconsistent.
+ *
  * @type {string}
  */
-const _URI_PROTOCOL_PATTERN = '([a-z][a-z0-9\\.\\+-]*:)';
+export const URI_PROTOCOL_PATTERN = '([a-z][a-z0-9\\.\\+-]*:)';
+
+/**
+ * Excludes/removes certain characters from a specific room (name) which are
+ * incompatible with Jitsi Meet on the client and/or server sides.
+ *
+ * @param {?string} room - The room (name) to fix.
+ * @private
+ * @returns {?string}
+ */
+function _fixRoom(room: ?string) {
+    return room
+        ? room.replace(new RegExp(_ROOM_EXCLUDE_PATTERN, 'g'), '')
+        : room;
+}
 
 /**
  * Fixes the hier-part of a specific URI (string) so that the URI is well-known.
@@ -41,7 +72,7 @@ function _fixURIStringHierPart(uri) {
     // hipchat.com
     let regex
         = new RegExp(
-            `^${_URI_PROTOCOL_PATTERN}//hipchat\\.com/video/call/`,
+            `^${URI_PROTOCOL_PATTERN}//hipchat\\.com/video/call/`,
             'gi');
     let match: Array<string> | null = regex.exec(uri);
 
@@ -49,7 +80,7 @@ function _fixURIStringHierPart(uri) {
         // enso.me
         regex
             = new RegExp(
-                `^${_URI_PROTOCOL_PATTERN}//enso\\.me/(?:call|meeting)/`,
+                `^${URI_PROTOCOL_PATTERN}//enso\\.me/(?:call|meeting)/`,
                 'gi');
         match = regex.exec(uri);
     }
@@ -81,7 +112,7 @@ function _fixURIStringHierPart(uri) {
  * @returns {string}
  */
 function _fixURIStringScheme(uri: string) {
-    const regex = new RegExp(`^${_URI_PROTOCOL_PATTERN}+`, 'gi');
+    const regex = new RegExp(`^${URI_PROTOCOL_PATTERN}+`, 'gi');
     const match: Array<string> | null = regex.exec(uri);
 
     if (match) {
@@ -185,7 +216,7 @@ export function parseStandardURIString(str: string) {
     str = str.replace(/\s/g, '');
 
     // protocol
-    regex = new RegExp(`^${_URI_PROTOCOL_PATTERN}`, 'gi');
+    regex = new RegExp(`^${URI_PROTOCOL_PATTERN}`, 'gi');
     match = regex.exec(str);
     if (match) {
         obj.protocol = match[1].toLowerCase();
@@ -285,10 +316,27 @@ export function parseURIString(uri: ?string) {
     // contextRoot
     obj.contextRoot = getLocationContextRoot(obj);
 
-    // The room (name) is the last component of pathname.
+    // The room (name) is the last component/segment of pathname.
     const { pathname } = obj;
 
-    obj.room = pathname.substring(pathname.lastIndexOf('/') + 1) || undefined;
+    // XXX While the components/segments of pathname are URI encoded, Jitsi Meet
+    // on the client and/or server sides still don't support certain characters.
+    const contextRootEndIndex = pathname.lastIndexOf('/');
+    let room = pathname.substring(contextRootEndIndex + 1) || undefined;
+
+    if (room) {
+        const fixedRoom = _fixRoom(room);
+
+        if (fixedRoom !== room) {
+            room = fixedRoom;
+
+            // XXX Drive fixedRoom into pathname (because room is derived from
+            // pathname).
+            obj.pathname
+                = pathname.substring(0, contextRootEndIndex + 1) + (room || '');
+        }
+    }
+    obj.room = room;
 
     return obj;
 }
@@ -327,12 +375,12 @@ function _standardURIToString(thiz: ?Object) {
  * the one accepted by the constructor of Web's ExternalAPI is supported on both
  * mobile/React Native and Web/React.
  *
- * @param {string|Object} obj - The URL to return a {@code String}
+ * @param {Object|string} obj - The URL to return a {@code String}
  * representation of.
  * @returns {string} - A {@code String} representation of the specified
  * {@code obj} which is supposed to represent a URL.
  */
-export function toURLString(obj: ?(string | Object)): ?string {
+export function toURLString(obj: ?(Object | string)): ?string {
     let str;
 
     switch (typeof obj) {
@@ -395,7 +443,7 @@ export function urlObjectToString(o: Object): ?string {
                     // XXX The value of domain in supposed to be host/hostname
                     // and, optionally, pathname. Make sure it is not taken for
                     // a pathname only.
-                    _fixURIStringScheme(`org.jitsi.meet://${domain}`));
+                    _fixURIStringScheme(`${APP_LINK_SCHEME}//${domain}`));
 
             // authority
             if (host) {

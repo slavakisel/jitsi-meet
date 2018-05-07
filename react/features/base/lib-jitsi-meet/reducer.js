@@ -1,25 +1,28 @@
+// @flow
+
 import { ReducerRegistry } from '../redux';
 
 import {
     LIB_DID_DISPOSE,
     LIB_DID_INIT,
     LIB_INIT_ERROR,
+    LIB_INIT_PROMISE_CREATED,
     SET_WEBRTC_READY
 } from './actionTypes';
 
 /**
- * The initial state of the feature base/lib-jitsi-meet.
+ * The default/initial redux state of the feature base/lib-jitsi-meet.
  *
  * @type {Object}
  */
-const INITIAL_STATE = {};
+const DEFAULT_STATE = {};
 
 ReducerRegistry.register(
     'features/base/lib-jitsi-meet',
-    (state = INITIAL_STATE, action) => {
+    (state = DEFAULT_STATE, action) => {
         switch (action.type) {
         case LIB_DID_DISPOSE:
-            return INITIAL_STATE;
+            return DEFAULT_STATE;
 
         case LIB_DID_INIT:
             return {
@@ -32,7 +35,14 @@ ReducerRegistry.register(
             return {
                 ...state,
                 initError: action.error,
-                initialized: false
+                initialized: false,
+                initPromise: undefined
+            };
+
+        case LIB_INIT_PROMISE_CREATED:
+            return {
+                ...state,
+                initPromise: action.initPromise
             };
 
         case SET_WEBRTC_READY:

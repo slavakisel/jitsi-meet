@@ -1,10 +1,13 @@
-import PropTypes from 'prop-types';
+// @flow
+
 import React, { Component } from 'react';
 import { Image, View } from 'react-native';
 
 import { CachedImage, ImageCache } from '../../../mobile/image-cache';
 import { Platform } from '../../react';
 import { ColorPalette } from '../../styles';
+
+import styles from './styles';
 
 /**
  * The default image/source to be used in case none is specified or the
@@ -22,36 +25,47 @@ import { ColorPalette } from '../../styles';
 const _DEFAULT_SOURCE = require('../../../../../images/avatar.png');
 
 /**
+ * The type of the React {@link Component} props of {@link Avatar}.
+ */
+type Props = {
+
+    /**
+     * The size for the {@link Avatar}.
+     */
+    size: number,
+
+
+    /**
+     * The URI of the {@link Avatar}.
+     */
+    uri: string
+};
+
+/**
+ * The type of the React {@link Component} state of {@link Avatar}.
+ */
+type State = {
+    backgroundColor: string,
+    source: number | { uri: string }
+};
+
+/**
  * Implements an avatar as a React Native/mobile {@link Component}.
  */
-export default class Avatar extends Component {
+export default class Avatar extends Component<Props, State> {
     /**
-     * Avatar component's property types.
-     *
-     * @static
+     * The indicator which determines whether this {@code Avatar} has been
+     * unmounted.
      */
-    static propTypes = {
-        /**
-         * The optional style to add to the {@link Avatar} in order to customize
-         * its base look (and feel).
-         */
-        style: PropTypes.object,
-
-        /**
-         * The URI of the {@link Avatar}.
-         *
-         * @type {string}
-         */
-        uri: PropTypes.string
-    };
+    _unmounted: ?boolean;
 
     /**
      * Initializes a new Avatar instance.
      *
-     * @param {Object} props - The read-only React Component props with which
+     * @param {Props} props - The read-only React Component props with which
      * the new instance is to be initialized.
      */
-    constructor(props) {
+    constructor(props: Props) {
         super(props);
 
         // Fork (in Facebook/React speak) the prop uri because Image will
@@ -67,11 +81,11 @@ export default class Avatar extends Component {
      * Additionally, other props may be forked as well.
      *
      * @inheritdoc
-     * @param {Object} nextProps - The read-only React Component props that this
+     * @param {Props} nextProps - The read-only React Component props that this
      * instance will receive.
      * @returns {void}
      */
-    componentWillReceiveProps(nextProps) {
+    componentWillReceiveProps(nextProps: Props) {
         // uri
         const prevURI = this.props && this.props.uri;
         const nextURI = nextProps && nextProps.uri;
@@ -216,13 +230,29 @@ export default class Avatar extends Component {
 
             /* eslint-enable no-unused-vars */
 
-            style,
+            size,
             ...props
         } = this.props;
         const {
             backgroundColor,
             source
         } = this.state;
+
+        // Compute the base style
+        const borderRadius = size / 2;
+        const style = {
+            ...styles.avatar,
+
+            // XXX Workaround for Android: for radii < 80 the border radius
+            // doesn't work properly, but applying a radius twice as big seems
+            // to do the trick.
+            borderRadius:
+                Platform.OS === 'android' && borderRadius < 80
+                    ? size * 2
+                    : borderRadius,
+            height: size,
+            width: size
+        };
 
         // If we're rendering the _DEFAULT_SOURCE, then we want to do some
         // additional fu like having automagical colors generated per

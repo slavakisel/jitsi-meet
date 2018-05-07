@@ -9,6 +9,7 @@ STYLES_BUNDLE = css/all.bundle.css
 STYLES_DESTINATION = css/all.css
 STYLES_MAIN = css/main.scss
 WEBPACK = ./node_modules/.bin/webpack
+WEBPACK_DEV_SERVER = ./node_modules/.bin/webpack-dev-server
 
 all: compile deploy clean
 
@@ -21,6 +22,7 @@ clean:
 deploy: deploy-init deploy-appbundle deploy-lib-jitsi-meet deploy-css deploy-local
 
 deploy-init:
+	rm -fr $(DEPLOY_DIR)
 	mkdir -p $(DEPLOY_DIR)
 
 deploy-appbundle:
@@ -33,6 +35,8 @@ deploy-appbundle:
 		$(BUILD_DIR)/external_api.min.map \
 		$(BUILD_DIR)/device_selection_popup_bundle.min.js \
 		$(BUILD_DIR)/device_selection_popup_bundle.min.map \
+		$(BUILD_DIR)/dial_in_info_bundle.min.js \
+		$(BUILD_DIR)/dial_in_info_bundle.min.map \
 		$(BUILD_DIR)/alwaysontop.min.js \
 		$(BUILD_DIR)/alwaysontop.min.map \
 		$(OUTPUT_DIR)/analytics-ga.js \
@@ -42,9 +46,8 @@ deploy-lib-jitsi-meet:
 	cp \
 		$(LIBJITSIMEET_DIR)/lib-jitsi-meet.min.js \
 		$(LIBJITSIMEET_DIR)/lib-jitsi-meet.min.map \
-		$(LIBJITSIMEET_DIR)/browser_capabilities.min.js \
-		$(LIBJITSIMEET_DIR)/browser_capabilities.min.map \
 		$(LIBJITSIMEET_DIR)/connection_optimization/external_connect.js \
+		$(LIBJITSIMEET_DIR)/modules/browser/capabilities.json \
 		$(DEPLOY_DIR)
 
 deploy-css:
@@ -54,6 +57,9 @@ deploy-css:
 
 deploy-local:
 	([ ! -x deploy-local.sh ] || ./deploy-local.sh)
+
+dev: deploy-init deploy-css deploy-lib-jitsi-meet
+	$(WEBPACK_DEV_SERVER)
 
 source-package:
 	mkdir -p source_package/jitsi-meet/css && \

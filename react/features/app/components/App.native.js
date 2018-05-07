@@ -6,14 +6,18 @@ import { Linking } from 'react-native';
 
 import '../../analytics';
 import '../../authentication';
-import { AspectRatioDetector } from '../../base/aspect-ratio';
 import { Platform } from '../../base/react';
+import {
+    AspectRatioDetector,
+    ReducedUIDetector
+} from '../../base/responsive-ui';
 import '../../mobile/audio-mode';
 import '../../mobile/background';
 import '../../mobile/callkit';
 import '../../mobile/external-api';
 import '../../mobile/full-screen';
 import '../../mobile/permissions';
+import '../../mobile/picture-in-picture';
 import '../../mobile/proximity';
 import '../../mobile/wake-lock';
 
@@ -32,6 +36,17 @@ export class App extends AbstractApp {
      */
     static propTypes = {
         ...AbstractApp.propTypes,
+
+        addPeopleEnabled: PropTypes.bool,
+
+        dialOutEnabled: PropTypes.bool,
+
+        /**
+         * Whether Picture-in-Picture is enabled. If {@code true}, a toolbar
+         * button is rendered in the {@link Conference} view to afford entering
+         * Picture-in-Picture.
+         */
+        pictureInPictureEnabled: PropTypes.bool,
 
         /**
          * Whether the Welcome page is enabled. If {@code true}, the Welcome
@@ -97,7 +112,9 @@ export class App extends AbstractApp {
     _createElement(component, props) {
         return (
             <AspectRatioDetector>
-                { super._createElement(component, props) }
+                <ReducedUIDetector>
+                    { super._createElement(component, props) }
+                </ReducedUIDetector>
             </AspectRatioDetector>
         );
     }

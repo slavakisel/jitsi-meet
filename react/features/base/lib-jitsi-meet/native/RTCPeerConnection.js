@@ -1,3 +1,5 @@
+// @flow
+
 import { NativeModules } from 'react-native';
 import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
 
@@ -33,7 +35,7 @@ const SOCK_STREAM = 1; /* stream socket */
  *
  * @class
  */
-export default function _RTCPeerConnection(...args) {
+export default function _RTCPeerConnection(...args: any[]) {
 
     /* eslint-disable indent, no-invalid-this */
 
@@ -50,6 +52,8 @@ export default function _RTCPeerConnection(...args) {
     // _RTCPeerConnection's prototype may (or may not, I don't know) work but I
     // don't want to try because the following approach appears to work and I
     // understand it.
+
+    // $FlowFixMe
     Object.defineProperty(this, 'onaddstream', {
         configurable: true,
         enumerable: true,
@@ -66,6 +70,14 @@ export default function _RTCPeerConnection(...args) {
 
 _RTCPeerConnection.prototype = Object.create(RTCPeerConnection.prototype);
 _RTCPeerConnection.prototype.constructor = _RTCPeerConnection;
+
+_RTCPeerConnection.prototype.addIceCandidate
+    = _makePromiseAware(RTCPeerConnection.prototype.addIceCandidate, 1, 0);
+
+_RTCPeerConnection.prototype.createAnswer
+    = _makePromiseAware(RTCPeerConnection.prototype.createAnswer, 0, 1);
+_RTCPeerConnection.prototype.createOffer
+    = _makePromiseAware(RTCPeerConnection.prototype.createOffer, 0, 1);
 
 _RTCPeerConnection.prototype._invokeOnaddstream = function(...args) {
     const onaddstream = this._onaddstream;
@@ -89,6 +101,9 @@ _RTCPeerConnection.prototype._invokeQueuedOnaddstream = function(q) {
 _RTCPeerConnection.prototype._queueOnaddstream = function(...args) {
     this._onaddstreamQueue.push(Array.from(args));
 };
+
+_RTCPeerConnection.prototype.setLocalDescription
+  = _makePromiseAware(RTCPeerConnection.prototype.setLocalDescription, 1, 0);
 
 _RTCPeerConnection.prototype.setRemoteDescription = function(
         sessionDescription,
@@ -126,6 +141,49 @@ _RTCPeerConnection.prototype.setRemoteDescription = function(
  */
 function _LOGE(...args) {
     console && console.error && console.error(...args);
+}
+
+/**
+ * Makes a {@code Promise}-returning function out of a specific void function
+ * with {@code successCallback} and {@code failureCallback}.
+ *
+ * @param {Function} f - The (void) function with {@code successCallback} and
+ * {@code failureCallback}.
+ * @param {number} beforeCallbacks - The number of arguments before
+ * {@code successCallback} and {@code failureCallback}.
+ * @param {number} afterCallbacks - The number of arguments after
+ * {@code successCallback} and {@code failureCallback}.
+ * @returns {Promise}
+ */
+function _makePromiseAware(
+        f: Function,
+        beforeCallbacks: number,
+        afterCallbacks: number) {
+    return function(...args) {
+        return new Promise((resolve, reject) => {
+            if (args.length <= beforeCallbacks + afterCallbacks) {
+                args.splice(beforeCallbacks, 0, resolve, reject);
+            }
+
+            let fPromise;
+
+            try {
+                // eslint-disable-next-line no-invalid-this
+                fPromise = f.apply(this, args);
+            } catch (e) {
+                reject(e);
+            }
+
+            // If the super implementation returns a Promise from the deprecated
+            // invocation by any chance, try to make sense of it.
+            if (fPromise) {
+                const { then } = fPromise;
+
+                typeof then === 'function'
+                    && then.call(fPromise, resolve, reject);
+            }
+        });
+    };
 }
 
 /**
@@ -173,8 +231,54 @@ function _setRemoteDescription(sessionDescription) {
     });
 }
 
+// XXX The function _synthesizeIPv6FromIPv4Address is not placed relative to the
+// other functions in the file according to alphabetical sorting rule of the
+// coding style. But eslint wants constants to be defined before they are used.
+
 /**
- * Synthesize IPv6 addresses on iOS in order to support IPv6 NAT64 networks.
+ * Synthesizes an IPv6 address from a specific IPv4 address.
+ *
+ * @param {string} ipv4 - The IPv4 address from which an IPv6 address is to be
+ * synthesized.
+ * @returns {Promise<?string>} A {@code Promise} which gets resolved with the
+ * IPv6 address synthesized from the specified {@code ipv4} or a falsy value to
+ * be treated as inability to synthesize an IPv6 address from the specified
+ * {@code ipv4}.
+ */
+const _synthesizeIPv6FromIPv4Address: string => Promise<?string> = (function() {
+    // POSIX.getaddrinfo
+    const { POSIX } = NativeModules;
+
+    if (POSIX) {
+        const { getaddrinfo } = POSIX;
+
+        if (typeof getaddrinfo === 'function') {
+            return ipv4 =>
+                getaddrinfo(/* hostname */ ipv4, /* servname */ undefined)
+                    .then(([ { ai_addr: ipv6 } ]) => ipv6);
+        }
+    }
+
+    // NAT64AddrInfo.getIPv6Address
+    const { NAT64AddrInfo } = NativeModules;
+
+    if (NAT64AddrInfo) {
+        const { getIPv6Address } = NAT64AddrInfo;
+
+        if (typeof getIPv6Address === 'function') {
+            return getIPv6Address;
+        }
+    }
+
+    // There's no POSIX.getaddrinfo or NAT64AddrInfo.getIPv6Address.
+    return () =>
+        Promise.reject(
+            'The impossible just happened! No POSIX.getaddrinfo or'
+                + ' NAT64AddrInfo.getIPv6Address!');
+})();
+
+/**
+ * Synthesizes IPv6 addresses on iOS in order to support IPv6 NAT64 networks.
  *
  * @param {RTCSessionDescription} sdp - The RTCSessionDescription which
  * specifies the configuration of the remote end of the connection.
@@ -182,12 +286,6 @@ function _setRemoteDescription(sessionDescription) {
  * @returns {Promise}
  */
 function _synthesizeIPv6Addresses(sdp) {
-    // The synthesis of IPv6 addresses is implemented on iOS only at the time of
-    // this writing.
-    if (!NativeModules.POSIX) {
-        return Promise.resolve(sdp);
-    }
-
     return (
         new Promise(resolve => resolve(_synthesizeIPv6Addresses0(sdp)))
             .then(({ ips, lines }) =>
@@ -214,7 +312,6 @@ function _synthesizeIPv6Addresses0(sessionDescription) {
     let start = 0;
     const lines = [];
     const ips = new Map();
-    const { getaddrinfo } = NativeModules.POSIX;
 
     do {
         const end = sdp.indexOf('\r\n', start);
@@ -253,9 +350,10 @@ function _synthesizeIPv6Addresses0(sessionDescription) {
                                 if (v && typeof v === 'string') {
                                     resolve(v);
                                 } else {
-                                    getaddrinfo(ip, undefined).then(
-                                        ([ { ai_addr: value } ]) => {
-                                            if (value.indexOf(':') === -1
+                                    _synthesizeIPv6FromIPv4Address(ip).then(
+                                        value => {
+                                            if (!value
+                                                    || value.indexOf(':') === -1
                                                     || value === ips.get(ip)) {
                                                 ips.delete(ip);
                                             } else {

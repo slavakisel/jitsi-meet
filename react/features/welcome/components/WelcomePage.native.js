@@ -1,34 +1,38 @@
 import React from 'react';
-import { TextInput, TouchableHighlight, View } from 'react-native';
+import {
+    Animated,
+    Keyboard,
+    SafeAreaView,
+    Switch,
+    TextInput,
+    TouchableHighlight,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { connect } from 'react-redux';
 
-import { AppSettings } from '../../app-settings';
-import { Icon } from '../../base/font-icons';
 import { translate } from '../../base/i18n';
+import { Icon } from '../../base/font-icons';
 import { MEDIA_TYPE } from '../../base/media';
-import { Link, LoadingIndicator, Text } from '../../base/react';
+import { updateProfile } from '../../base/profile';
+import { LoadingIndicator, Header, Text } from '../../base/react';
 import { ColorPalette } from '../../base/styles';
-import { createDesiredLocalTracks } from '../../base/tracks';
-import { RecentList } from '../../recent-list';
+import {
+    createDesiredLocalTracks,
+    destroyLocalTracks
+} from '../../base/tracks';
+import { SettingsView } from '../../settings';
 
 import { AbstractWelcomePage, _mapStateToProps } from './AbstractWelcomePage';
+import { setSideBarVisible } from '../actions';
 import LocalVideoTrackUnderlay from './LocalVideoTrackUnderlay';
-import styles, { PLACEHOLDER_TEXT_COLOR } from './styles';
-
-/**
- * The URL at which the privacy policy is available to the user.
- */
-const PRIVACY_URL = 'https://jitsi.org/meet/privacy';
-
-/**
- * The URL at which the user may send feedback.
- */
-const SEND_FEEDBACK_URL = 'mailto:support@jitsi.org';
-
-/**
- * The URL at which the terms (of service/use) are available to the user.
- */
-const TERMS_URL = 'https://jitsi.org/meet/terms';
+import styles, {
+    PLACEHOLDER_TEXT_COLOR,
+    SWITCH_THUMB_COLOR,
+    SWITCH_UNDER_COLOR
+} from './styles';
+import WelcomePageLists from './WelcomePageLists';
+import WelcomePageSideBar from './WelcomePageSideBar';
 
 /**
  * The native container rendering the welcome page.
@@ -37,11 +41,23 @@ const TERMS_URL = 'https://jitsi.org/meet/terms';
  */
 class WelcomePage extends AbstractWelcomePage {
     /**
-     * WelcomePage component's property types.
+     * Constructor of the Component.
      *
-     * @static
+     * @inheritdoc
      */
-    static propTypes = AbstractWelcomePage.propTypes;
+    constructor(props) {
+        super(props);
+
+        this.state._fieldFocused = false;
+        this.state.hintBoxAnimation = new Animated.Value(0);
+
+        // Bind event handlers so they are only bound once per instance.
+        this._getHintBoxStyle = this._getHintBoxStyle.bind(this);
+        this._onFieldFocusChange = this._onFieldFocusChange.bind(this);
+        this._onShowSideBar = this._onShowSideBar.bind(this);
+        this._onStartAudioOnlyChange = this._onStartAudioOnlyChange.bind(this);
+        this._renderHintBox = this._renderHintBox.bind(this);
+    }
 
     /**
      * Implements React's {@link Component#componentWillMount()}. Invoked
@@ -54,7 +70,13 @@ class WelcomePage extends AbstractWelcomePage {
     componentWillMount() {
         super.componentWillMount();
 
-        this.props.dispatch(createDesiredLocalTracks(MEDIA_TYPE.VIDEO));
+        const { dispatch } = this.props;
+
+        if (this.props._profile.startAudioOnly) {
+            dispatch(destroyLocalTracks());
+        } else {
+            dispatch(createDesiredLocalTracks(MEDIA_TYPE.VIDEO));
+        }
     }
 
     /**
@@ -65,47 +87,162 @@ class WelcomePage extends AbstractWelcomePage {
      * @returns {ReactElement}
      */
     render() {
-        const { t } = this.props;
+        const { buttonStyle, pageStyle, textStyle } = Header;
+        const { t, _profile } = this.props;
 
         return (
             <LocalVideoTrackUnderlay style = { styles.welcomePage }>
-                <View style = { styles.roomContainer }>
-                    <TextInput
-                        accessibilityLabel = { 'Input room name.' }
-                        autoCapitalize = 'none'
-                        autoComplete = { false }
-                        autoCorrect = { false }
-                        autoFocus = { false }
-                        onChangeText = { this._onRoomChange }
-                        onSubmitEditing = { this._onJoin }
-                        placeholder = { t('welcomepage.roomname') }
-                        placeholderTextColor = { PLACEHOLDER_TEXT_COLOR }
-                        returnKeyType = { 'go' }
-                        style = { styles.textInput }
-                        underlineColorAndroid = 'transparent'
-                        value = { this.state.room } />
-                    <View style = { styles.buttonRow }>
-                        <TouchableHighlight
-                            accessibilityLabel = { 'Tap for Settings.' }
-                            onPress = { this._onSettingsOpen }
-                            style = { [ styles.button, styles.settingsButton ] }
-                            underlayColor = { ColorPalette.white }>
+                <View style = { pageStyle }>
+                    <Header style = { styles.header }>
+                        <TouchableOpacity onPress = { this._onShowSideBar } >
                             <Icon
-                                name = 'settings'
-                                style = { styles.settingsIcon } />
-                        </TouchableHighlight>
-                        {
-                            this._renderJoinButton()
-                        }
-                    </View>
-                    <RecentList />
+                                name = 'menu'
+                                style = { buttonStyle } />
+                        </TouchableOpacity>
+                        <View style = { styles.audioVideoSwitchContainer }>
+                            <Text style = { textStyle } >
+                                { t('welcomepage.audioVideoSwitch.video') }
+                            </Text>
+                            <Switch
+                                onTintColor = { SWITCH_UNDER_COLOR }
+                                onValueChange = { this._onStartAudioOnlyChange }
+                                style = { styles.audioVideoSwitch }
+                                thumbTintColor = { SWITCH_THUMB_COLOR }
+                                value = { _profile.startAudioOnly } />
+                            <Text style = { textStyle } >
+                                { t('welcomepage.audioVideoSwitch.audio') }
+                            </Text>
+                        </View>
+                    </Header>
+                    <SafeAreaView style = { styles.roomContainer } >
+                        <View style = { styles.joinControls } >
+                            <TextInput
+                                accessibilityLabel = { 'Input room name.' }
+                                autoCapitalize = 'none'
+                                autoComplete = { false }
+                                autoCorrect = { false }
+                                autoFocus = { false }
+                                onBlur = { this._onFieldFocusChange(false) }
+                                onChangeText = { this._onRoomChange }
+                                onFocus = { this._onFieldFocusChange(true) }
+                                onSubmitEditing = { this._onJoin }
+                                placeholder = { t('welcomepage.roomname') }
+                                placeholderTextColor = {
+                                    PLACEHOLDER_TEXT_COLOR
+                                }
+                                returnKeyType = { 'go' }
+                                style = { styles.textInput }
+                                underlineColorAndroid = 'transparent'
+                                value = { this.state.room } />
+                            {
+                                this._renderHintBox()
+                            }
+                        </View>
+                    </SafeAreaView>
+                    <WelcomePageLists disabled = { this.state._fieldFocused } />
+                    <SettingsView />
                 </View>
-                <AppSettings />
-                {
-                    this._renderLegalese()
-                }
+                <WelcomePageSideBar />
             </LocalVideoTrackUnderlay>
         );
+    }
+
+    /**
+     * Constructs a style array to handle the hint box animation.
+     *
+     * @private
+     * @returns {Array<Object>}
+     */
+    _getHintBoxStyle() {
+        return [
+            styles.hintContainer,
+            {
+                opacity: this.state.hintBoxAnimation
+            }
+        ];
+    }
+
+    /**
+     * Callback for when the room field's focus changes so the hint box
+     * must be rendered or removed.
+     *
+     * @private
+     * @param {boolean} focused - The focused state of the field.
+     * @returns {Function}
+     */
+    _onFieldFocusChange(focused) {
+        return () => {
+            if (focused) {
+                this.setState({
+                    _fieldFocused: true
+                });
+            }
+
+            Animated.timing(this.state.hintBoxAnimation, {
+                duration: 300,
+                toValue: focused ? 1 : 0
+            }).start(animationState => {
+                if (animationState.finished && !focused) {
+                    this.setState({
+                        _fieldFocused: false
+                    });
+                }
+            });
+        };
+    }
+
+    /**
+     * Toggles the side bar.
+     *
+     * @private
+     * @returns {void}
+     */
+    _onShowSideBar() {
+        Keyboard.dismiss();
+        this.props.dispatch(setSideBarVisible(true));
+    }
+
+    /**
+     * Handles the audio-video switch changes.
+     *
+     * @private
+     * @param {boolean} startAudioOnly - The new startAudioOnly value.
+     * @returns {void}
+     */
+    _onStartAudioOnlyChange(startAudioOnly) {
+        const { dispatch } = this.props;
+
+        dispatch(updateProfile({
+            ...this.props._profile,
+            startAudioOnly
+        }));
+    }
+
+    /**
+     * Renders the hint box if necessary.
+     *
+     * @private
+     * @returns {React$Node}
+     */
+    _renderHintBox() {
+        if (this.state._fieldFocused) {
+            const { t } = this.props;
+
+            return (
+                <Animated.View style = { this._getHintBoxStyle() }>
+                    <View style = { styles.hintTextContainer } >
+                        <Text style = { styles.hintText }>
+                            { t('welcomepage.roomnameHint') }
+                        </Text>
+                    </View>
+                    <View style = { styles.hintButtonContainer } >
+                        { this._renderJoinButton() }
+                    </View>
+                </Animated.View>
+            );
+        }
+
+        return null;
     }
 
     /**
@@ -125,7 +262,9 @@ class WelcomePage extends AbstractWelcomePage {
             // modify non-native children.
             children = (
                 <View>
-                    <LoadingIndicator color = { styles.buttonText.color } />
+                    <LoadingIndicator
+                        color = { styles.buttonText.color }
+                        size = 'small' />
                 </View>
             );
         } else {
@@ -138,48 +277,22 @@ class WelcomePage extends AbstractWelcomePage {
 
         /* eslint-enable no-extra-parens */
 
+        const buttonDisabled = this._isJoinDisabled();
+
         return (
             <TouchableHighlight
                 accessibilityLabel = { 'Tap to Join.' }
-                disabled = { this._isJoinDisabled() }
+                disabled = { buttonDisabled }
                 onPress = { this._onJoin }
-                style = { [ styles.button, styles.joinButton ] }
+                style = { [
+                    styles.button,
+                    buttonDisabled ? styles.buttonDisabled : null
+                ] }
                 underlayColor = { ColorPalette.white }>
                 {
                     children
                 }
             </TouchableHighlight>
-        );
-    }
-
-    /**
-     * Renders legal-related content such as Terms of service/use, Privacy
-     * policy, etc.
-     *
-     * @private
-     * @returns {ReactElement}
-     */
-    _renderLegalese() {
-        const { t } = this.props;
-
-        return (
-            <View style = { styles.legaleseContainer }>
-                <Link
-                    style = { styles.legaleseItem }
-                    url = { TERMS_URL }>
-                    { t('welcomepage.terms') }
-                </Link>
-                <Link
-                    style = { styles.legaleseItem }
-                    url = { PRIVACY_URL }>
-                    { t('welcomepage.privacy') }
-                </Link>
-                <Link
-                    style = { styles.legaleseItem }
-                    url = { SEND_FEEDBACK_URL }>
-                    { t('welcomepage.sendFeedback') }
-                </Link>
-            </View>
         );
     }
 }

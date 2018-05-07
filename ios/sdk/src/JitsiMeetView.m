@@ -23,6 +23,8 @@
 #import <React/RCTLinkingManager.h>
 #import <React/RCTRootView.h>
 
+#import "Invite+Private.h"
+#import "InviteController+Private.h"
 #import "JitsiMeetView+Private.h"
 #import "RCTBridgeWrapper.h"
 
@@ -109,7 +111,11 @@ void registerFatalErrorHandler() {
 
 @end
 
-@implementation JitsiMeetView
+@implementation JitsiMeetView {
+    NSNumber *_pictureInPictureEnabled;
+}
+
+@dynamic pictureInPictureEnabled;
 
 static RCTBridgeWrapper *bridgeWrapper;
 
@@ -265,7 +271,11 @@ static NSMapTable<NSString *, JitsiMeetView *> *views;
     }
 
     props[@"externalAPIScope"] = externalAPIScope;
+    props[@"pictureInPictureEnabled"] = @(self.pictureInPictureEnabled);
     props[@"welcomePageEnabled"] = @(self.welcomePageEnabled);
+
+    props[@"addPeopleEnabled"] = @(_inviteController.addPeopleEnabled);
+    props[@"dialOutEnabled"] = @(_inviteController.dialOutEnabled);
 
     // XXX If urlObject is nil, then it must appear as undefined in the
     // JavaScript source code so that we check the launchOptions there.
@@ -313,6 +323,28 @@ static NSMapTable<NSString *, JitsiMeetView *> *views;
  */
 - (void)loadURLString:(NSString *)urlString {
     [self loadURLObject:urlString ? @{ @"url": urlString } : nil];
+}
+
+#pragma pictureInPictureEnabled getter / setter
+
+- (void) setPictureInPictureEnabled:(BOOL)pictureInPictureEnabled {
+    _pictureInPictureEnabled
+        = [NSNumber numberWithBool:pictureInPictureEnabled];
+}
+
+- (BOOL) pictureInPictureEnabled {
+    if (_pictureInPictureEnabled) {
+        return [_pictureInPictureEnabled boolValue];
+    }
+
+    // The SDK/JitsiMeetView client/consumer did not explicitly enable/disable
+    // Picture-in-Picture. However, we may automatically deduce their
+    // intentions: we need the support of the client in order to implement
+    // Picture-in-Picture on iOS (in contrast to Android) so if the client
+    // appears to have provided the support then we can assume that they did it
+    // with the intention to have Picture-in-Picture enabled.
+    return self.delegate
+        && [self.delegate respondsToSelector:@selector(enterPictureInPicture:)];
 }
 
 #pragma mark Private methods
@@ -376,10 +408,13 @@ static NSMapTable<NSString *, JitsiMeetView *> *views;
     });
 
     // Hook this JitsiMeetView into ExternalAPI.
-    if (!externalAPIScope) {
-        externalAPIScope = [NSUUID UUID].UUIDString;
-        [views setObject:self forKey:externalAPIScope];
-    }
+    externalAPIScope = [NSUUID UUID].UUIDString;
+    [views setObject:self forKey:externalAPIScope];
+
+    Invite *inviteModule = [bridgeWrapper.bridge moduleForName:@"Invite"];
+    _inviteController
+        = [[JMInviteController alloc] initWithExternalAPIScope:externalAPIScope
+                                               andInviteModule:inviteModule];
 
     // Set a background color which is in accord with the JavaScript and Android
     // parts of the application and causes less perceived visual flicker than

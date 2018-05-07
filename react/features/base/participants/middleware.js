@@ -1,26 +1,40 @@
-/* @flow */
+// @flow
 
 import UIEvents from '../../../../service/UI/UIEvents';
 
+import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from '../../app';
 import {
     CONFERENCE_JOINED,
     CONFERENCE_LEFT
 } from '../conference';
 import { MiddlewareRegistry } from '../redux';
+import { playSound, registerSound, unregisterSound } from '../sounds';
 
-import { localParticipantIdChanged } from './actions';
 import {
+    localParticipantIdChanged,
+    participantUpdated
+} from './actions';
+import {
+    DOMINANT_SPEAKER_CHANGED,
     KICK_PARTICIPANT,
     MUTE_REMOTE_PARTICIPANT,
     PARTICIPANT_DISPLAY_NAME_CHANGED,
     PARTICIPANT_JOINED,
+    PARTICIPANT_LEFT,
     PARTICIPANT_UPDATED
 } from './actionTypes';
-import { LOCAL_PARTICIPANT_DEFAULT_ID } from './constants';
+import {
+    LOCAL_PARTICIPANT_DEFAULT_ID,
+    PARTICIPANT_JOINED_SOUND_ID,
+    PARTICIPANT_LEFT_SOUND_ID
+} from './constants';
 import {
     getAvatarURLByParticipantId,
-    getLocalParticipant
+    getLocalParticipant,
+    getParticipantById,
+    getParticipantCount
 } from './functions';
+import { PARTICIPANT_JOINED_FILE, PARTICIPANT_LEFT_FILE } from './sounds';
 
 declare var APP: Object;
 
@@ -34,7 +48,18 @@ declare var APP: Object;
 MiddlewareRegistry.register(store => next => action => {
     const { conference } = store.getState()['features/base/conference'];
 
+    if (action.type === PARTICIPANT_JOINED
+            || action.type === PARTICIPANT_LEFT) {
+        _maybePlaySounds(store, action);
+    }
+
     switch (action.type) {
+    case APP_WILL_MOUNT:
+        _registerSounds(store);
+        break;
+    case APP_WILL_UNMOUNT:
+        _unregisterSounds(store);
+        break;
     case CONFERENCE_JOINED:
         store.dispatch(localParticipantIdChanged(action.conference.myUserId()));
         break;
@@ -42,6 +67,27 @@ MiddlewareRegistry.register(store => next => action => {
     case CONFERENCE_LEFT:
         store.dispatch(localParticipantIdChanged(LOCAL_PARTICIPANT_DEFAULT_ID));
         break;
+
+    case DOMINANT_SPEAKER_CHANGED: {
+        // Ensure the raised hand state is cleared for the dominant speaker.
+        const participant = getLocalParticipant(store.getState());
+
+        if (participant) {
+            const local = participant.id === action.participant.id;
+
+            store.dispatch(participantUpdated({
+                id: action.participant.id,
+                local,
+                raisedHand: false
+            }));
+        }
+
+        if (typeof APP === 'object') {
+            APP.UI.markDominantSpeaker(action.participant.id);
+        }
+
+        break;
+    }
 
     case KICK_PARTICIPANT:
         conference.kickParticipant(action.id);
@@ -67,10 +113,37 @@ MiddlewareRegistry.register(store => next => action => {
 
     case PARTICIPANT_JOINED:
     case PARTICIPANT_UPDATED: {
-        if (typeof APP !== 'undefined') {
-            const participant = action.participant;
-            const { id, local } = participant;
+        const { participant } = action;
+        const { id, local, raisedHand } = participant;
 
+        // Send an external update of the local participant's raised hand state
+        // if a new raised hand state is defined in the action.
+        if (typeof raisedHand !== 'undefined') {
+            if (local) {
+                conference.setLocalParticipantProperty(
+                    'raisedHand',
+                    raisedHand);
+            }
+
+            if (typeof APP === 'object') {
+                if (local) {
+                    APP.UI.onLocalRaiseHandChanged(raisedHand);
+                    APP.UI.setLocalRaisedHandStatus(raisedHand);
+                } else {
+                    const remoteParticipant
+                        = getParticipantById(store.getState(), id);
+
+                    remoteParticipant
+                        && APP.UI.setRaisedHandStatus(
+                            remoteParticipant.id,
+                            remoteParticipant.name,
+                            raisedHand);
+                }
+            }
+        }
+
+        // Notify external listeners of potential avatarURL changes.
+        if (typeof APP === 'object') {
             const preUpdateAvatarURL
                 = getAvatarURLByParticipantId(store.getState(), id);
 
@@ -100,3 +173,59 @@ MiddlewareRegistry.register(store => next => action => {
 
     return next(action);
 });
+
+/**
+ * Plays sounds when participants join/leave conference.
+ *
+ * @param {Store} store - The Redux store.
+ * @param {Action} action - The Redux action. Should be either
+ * {@link PARTICIPANT_JOINED} or {@link PARTICIPANT_LEFT}.
+ * @private
+ * @returns {void}
+ */
+function _maybePlaySounds({ getState, dispatch }, action) {
+    const state = getState();
+    const { startAudioMuted } = state['features/base/config'];
+
+    // We're not playing sounds for local participant
+    // nor when the user is joining past the "startAudioMuted" limit.
+    // The intention there was to not play user joined notification in big
+    // conferences where 100th person is joining.
+    if (!action.participant.local
+        && (!startAudioMuted
+            || getParticipantCount(state) < startAudioMuted)) {
+        if (action.type === PARTICIPANT_JOINED) {
+            dispatch(playSound(PARTICIPANT_JOINED_SOUND_ID));
+        } else if (action.type === PARTICIPANT_LEFT) {
+            dispatch(playSound(PARTICIPANT_LEFT_SOUND_ID));
+        }
+    }
+}
+
+/**
+ * Registers sounds related with the participants feature.
+ *
+ * @param {Store} store - The Redux store.
+ * @private
+ * @returns {void}
+ */
+function _registerSounds({ dispatch }) {
+    dispatch(
+        registerSound(PARTICIPANT_JOINED_SOUND_ID, PARTICIPANT_JOINED_FILE));
+    dispatch(
+        registerSound(PARTICIPANT_LEFT_SOUND_ID, PARTICIPANT_LEFT_FILE));
+}
+
+/**
+ * Unregisters sounds related with the participants feature.
+ *
+ * @param {Store} store - The Redux store.
+ * @private
+ * @returns {void}
+ */
+function _unregisterSounds({ dispatch }) {
+    dispatch(
+        unregisterSound(PARTICIPANT_JOINED_SOUND_ID));
+    dispatch(
+        unregisterSound(PARTICIPANT_LEFT_SOUND_ID));
+}

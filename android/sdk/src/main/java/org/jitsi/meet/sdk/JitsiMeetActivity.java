@@ -23,25 +23,25 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.view.KeyEvent;
+
+import com.facebook.react.ReactInstanceManager;
+import com.facebook.react.modules.core.DefaultHardwareBackBtnHandler;
 
 import java.net.URL;
 
-import com.facebook.react.modules.core.DefaultHardwareBackBtnHandler;
-
 /**
  * Base Activity for applications integrating Jitsi Meet at a higher level. It
- * contains all the required wiring between the {@code JKConferenceView} and
+ * contains all the required wiring between the {@code JitsiMeetView} and
  * the Activity lifecycle methods already implemented.
  *
- * In this activity we use a single {@code JKConferenceView} instance. This
+ * In this activity we use a single {@code JitsiMeetView} instance. This
  * instance gives us access to a view which displays the welcome page and the
  * conference itself. All lifetime methods associated with this Activity are
  * hooked to the React Native subsystem via proxy calls through the
- * {@code JKConferenceView} static methods.
+ * {@code JitsiMeetView} static methods.
  */
-public class JitsiMeetActivity
-    extends AppCompatActivity {
-
+public class JitsiMeetActivity extends AppCompatActivity {
     /**
      * The request code identifying requests for the permission to draw on top
      * of other apps. The value must be 16-bit and is arbitrarily chosen here.
@@ -68,6 +68,12 @@ public class JitsiMeetActivity
     private JitsiMeetView view;
 
     /**
+     * Whether Picture-in-Picture is enabled. The value is used only while
+     * {@link #view} equals {@code null}.
+     */
+    private Boolean pictureInPictureEnabled;
+
+    /**
      * Whether the Welcome page is enabled. The value is used only while
      * {@link #view} equals {@code null}.
      */
@@ -91,6 +97,17 @@ public class JitsiMeetActivity
 
     /**
      *
+     * @see JitsiMeetView#getPictureInPictureEnabled()
+     */
+    public boolean getPictureInPictureEnabled() {
+        return
+            view == null
+                ? pictureInPictureEnabled
+                : view.getPictureInPictureEnabled();
+    }
+
+    /**
+     *
      * @see JitsiMeetView#getWelcomePageEnabled()
      */
     public boolean getWelcomePageEnabled() {
@@ -105,6 +122,11 @@ public class JitsiMeetActivity
         JitsiMeetView view = initializeView();
 
         if (view != null) {
+            // XXX Allow extenders who override initializeView() to configure
+            // the view before the first loadURL(). Probably works around a
+            // problem related to ReactRootView#setAppProperties().
+            view.loadURL(null);
+
             this.view = view;
             setContentView(this.view);
         }
@@ -121,9 +143,11 @@ public class JitsiMeetActivity
         // XXX Before calling JitsiMeetView#loadURL, make sure to call whatever
         // is documented to need such an order in order to take effect:
         view.setDefaultURL(defaultURL);
+        if (pictureInPictureEnabled != null) {
+            view.setPictureInPictureEnabled(
+                pictureInPictureEnabled.booleanValue());
+        }
         view.setWelcomePageEnabled(welcomePageEnabled);
-
-        view.loadURL(null);
 
         return view;
     }
@@ -199,17 +223,26 @@ public class JitsiMeetActivity
         JitsiMeetView.onHostDestroy(this);
     }
 
+    // ReactAndroid/src/main/java/com/facebook/react/ReactActivity.java
     @Override
-    public void onNewIntent(Intent intent) {
-        JitsiMeetView.onNewIntent(intent);
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        ReactInstanceManager reactInstanceManager;
+
+        if (!super.onKeyUp(keyCode, event)
+                && BuildConfig.DEBUG
+                && (reactInstanceManager
+                        = ReactInstanceManagerHolder.getReactInstanceManager())
+                    != null
+                && keyCode == KeyEvent.KEYCODE_MENU) {
+            reactInstanceManager.showDevOptionsDialog();
+            return true;
+        }
+        return false;
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-
-        JitsiMeetView.onHostPause(this);
-        defaultBackButtonImpl = null;
+    public void onNewIntent(Intent intent) {
+        JitsiMeetView.onNewIntent(intent);
     }
 
     @Override
@@ -218,6 +251,21 @@ public class JitsiMeetActivity
 
         defaultBackButtonImpl = new DefaultHardwareBackBtnHandlerImpl(this);
         JitsiMeetView.onHostResume(this, defaultBackButtonImpl);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        JitsiMeetView.onHostPause(this);
+        defaultBackButtonImpl = null;
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        if (view != null) {
+            view.onUserLeaveHint();
+        }
     }
 
     /**
@@ -229,6 +277,19 @@ public class JitsiMeetActivity
             this.defaultURL = defaultURL;
         } else {
             view.setDefaultURL(defaultURL);
+        }
+    }
+
+    /**
+     *
+     * @see JitsiMeetView#setPictureInPictureEnabled(boolean)
+     */
+    public void setPictureInPictureEnabled(boolean pictureInPictureEnabled) {
+        if (view == null) {
+            this.pictureInPictureEnabled
+                = Boolean.valueOf(pictureInPictureEnabled);
+        } else {
+            view.setPictureInPictureEnabled(pictureInPictureEnabled);
         }
     }
 
