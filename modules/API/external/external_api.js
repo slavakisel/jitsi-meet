@@ -26,7 +26,8 @@ const commands = {
     toggleChat: 'toggle-chat',
     toggleFilmStrip: 'toggle-film-strip',
     toggleShareScreen: 'toggle-share-screen',
-    toggleVideo: 'toggle-video'
+    toggleVideo: 'toggle-video',
+    loadDialIn: 'load-dial-in'
 };
 
 /**
@@ -48,7 +49,8 @@ const events = {
     'video-conference-left': 'videoConferenceLeft',
     'video-availability-changed': 'videoAvailabilityChanged',
     'video-mute-status-changed': 'videoMuteStatusChanged',
-    'screen-sharing-status-changed': 'screenSharingStatusChanged'
+    'screen-sharing-status-changed': 'screenSharingStatusChanged',
+    'dialin-ready': 'dialInReady'
 };
 
 /**
@@ -531,6 +533,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * toggleAudio - mutes / unmutes audio with no arguments.
      * toggleVideo - mutes / unmutes video with no arguments.
      * toggleFilmStrip - hides / shows the filmstrip with no arguments.
+     * loadDialIn - requests conference ID from conference mapper and dialin info.
      * If the command doesn't require any arguments the parameter should be set
      * to empty array or it may be omitted.
      *
@@ -558,6 +561,7 @@ export default class JitsiMeetExternalAPI extends EventEmitter {
      * toggleFilmStrip - hides / shows the filmstrip. no arguments
      * toggleChat - hides / shows chat. no arguments.
      * toggleShareScreen - starts / stops screen sharing. no arguments.
+     * loadDialIn - requests conference ID from conference mapper and dialin info.
      *
      * @param {Object} commandList - The object with commands to be executed.
      * The keys of the object are the commands that will be executed and the

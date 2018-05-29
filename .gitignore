@@ -1,6 +1,6 @@
 *.swp
 .*.tmp
-deploy-local.sh
+deploy-local*
 libs/
 all.css
 *css.map
@@ -68,3 +68,5 @@ buck-out/
 */fastlane/report.xml
 */fastlane/Preview.html
 */fastlane/screenshots
+
+tmp

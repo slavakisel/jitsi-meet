@@ -21,6 +21,8 @@ clean:
 
 deploy: deploy-init deploy-appbundle deploy-lib-jitsi-meet deploy-css deploy-local
 
+staging: deploy-init deploy-appbundle deploy-lib-jitsi-meet deploy-css deploy-local-staging
+
 deploy-init:
 	rm -fr $(DEPLOY_DIR)
 	mkdir -p $(DEPLOY_DIR)
@@ -60,6 +62,9 @@ deploy-local:
 
 dev: deploy-init deploy-css deploy-lib-jitsi-meet
 	$(WEBPACK_DEV_SERVER)
+
+deploy-local-staging:
+	([ ! -x deploy-local-staging.sh ] || ./deploy-local-staging.sh)
 
 source-package:
 	mkdir -p source_package/jitsi-meet/css && \

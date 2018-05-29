@@ -8,6 +8,7 @@ import {
 import { parseJWTFromURLParams } from '../../react/features/base/jwt';
 import { invite } from '../../react/features/invite';
 import { getJitsiMeetTransport } from '../transport';
+import { loadDialIn } from '../../react/features/invite/loadDialIn';
 
 import { API_ID } from './constants';
 
@@ -97,6 +98,16 @@ function initCommands() {
         'avatar-url': avatarUrl => {
             sendAnalytics(createApiEvent('avatar.url.changed'));
             APP.conference.changeLocalAvatarUrl(avatarUrl);
+        },
+        'load-dial-in': () => {
+            const state = APP.store.getState();
+            loadDialIn(
+                state,
+                (dialInNumbers, conference, id, message) => {
+                    APP.API.notifyDialInReady(id);
+                },
+                (error) => { console.log(error) }
+            );
         }
     };
     transport.on('event', ({ data, name }) => {
@@ -393,6 +404,19 @@ class API {
         this._sendEvent({
             name: 'video-conference-left',
             roomName
+        });
+    }
+
+    /**
+     * Notify external application (if API is enabled) with conference ID number as PIN.
+     *
+     * @param {number} pin - conference id.
+     * @returns {void}
+     */
+    notifyDialInReady(pin) {
+        this._sendEvent({
+            name: 'dialin-ready',
+            pin
         });
     }
 
